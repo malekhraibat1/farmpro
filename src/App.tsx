@@ -42,7 +42,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [currentRole, setCurrentRole] = useState<UserRole>('admin');
   const [isLocked, setIsLocked] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showSupabaseModal, setShowSupabaseModal] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);

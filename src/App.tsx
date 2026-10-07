@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Entity,
   Medicine,
@@ -10,12 +10,16 @@ import {
   TransactionType,
 } from './types';
 import { AppStorage, defaultSettings } from './services/storage';
+import { ThemeService, ThemeId } from './services/themeService';
+import { SupabaseService } from './services/supabaseService';
 import { Header } from './components/Header';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { MobileNav } from './components/MobileNav';
 import { AboutModal } from './components/AboutModal';
 import { SplashScreen } from './components/SplashScreen';
 import { SecurityLockModal } from './components/SecurityLockModal';
+import { ThemeSelectorModal } from './components/ThemeSelectorModal';
+import { DeviceSyncModal } from './components/DeviceSyncModal';
 import { DashboardView } from './views/DashboardView';
 import { EntitiesView } from './views/EntitiesView';
 import { POSView } from './views/POSView';
@@ -38,6 +42,9 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>(() => AppStorage.getExpenses());
   const [settings, setSettings] = useState<AppSettings>(() => AppStorage.getSettings());
 
+  // Theme State
+  const [currentThemeId, setCurrentThemeId] = useState<ThemeId>(() => ThemeService.getStoredTheme());
+
   // UI Navigation & Modals
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [currentRole, setCurrentRole] = useState<UserRole>('admin');
@@ -45,8 +52,47 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showSupabaseModal, setShowSupabaseModal] = useState(false);
+  const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showDeviceSyncModal, setShowDeviceSyncModal] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [selectedEntityForLedger, setSelectedEntityForLedger] = useState<Entity | null>(null);
+
+  // Initialize theme on mount
+  useEffect(() => {
+    ThemeService.applyTheme(currentThemeId);
+  }, [currentThemeId]);
+
+  const handleSelectTheme = (themeId: ThemeId) => {
+    setCurrentThemeId(themeId);
+    ThemeService.applyTheme(themeId);
+  };
+
+  // Check URL parameters for 1-click QR Pairing from other devices
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.location.search) {
+        const params = new URLSearchParams(window.location.search);
+        const syncUrl = params.get('sync_url');
+        const syncKey = params.get('sync_key');
+        if (syncUrl && syncKey) {
+          const currentConfig = SupabaseService.getConfig();
+          if (currentConfig.url !== syncUrl || currentConfig.anonKey !== syncKey) {
+            SupabaseService.saveConfig({
+              url: decodeURIComponent(syncUrl),
+              anonKey: decodeURIComponent(syncKey),
+              isConnected: true,
+              lastSyncedAt: new Date().toLocaleTimeString('ar-EG'),
+            });
+            alert('🎉 تم ربط هذا الهاتف تلقائياً بقاعدة بيانات الصيدلية السحابية بنجاح عبر مسح الـ QR!');
+            // Clean URL query to keep it clean
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('QR query param parse failed:', e);
+    }
+  }, []);
 
   // Sync to localStorage whenever states change
   useEffect(() => {
@@ -110,9 +156,6 @@ export default function App() {
     const entity = entities.find(e => e.id === entityId);
     if (!entity) return;
 
-    // Recalculate balance
-    // Debit = owes us more / increases positive balance
-    // Credit = paid us or we owe them / decreases balance
     const newBalance =
       direction === 'debit' ? entity.currentBalance + amount : entity.currentBalance - amount;
 
@@ -301,7 +344,7 @@ export default function App() {
     (settings.license?.planType !== 'lifetime' && licenseExpiry < todayDate);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white transition-colors duration-300">
       {/* Splash Screen intro on load */}
       {showSplash && (
         <SplashScreen onDismiss={() => setShowSplash(false)} autoClose={true} />
@@ -324,6 +367,31 @@ export default function App() {
       {/* About Engineer Malik Hraibat Modal */}
       <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} />
 
+      {/* Theme Selector Modal */}
+      <ThemeSelectorModal
+        isOpen={showThemeModal}
+        onClose={() => setShowThemeModal(false)}
+        currentThemeId={currentThemeId}
+        onSelectTheme={handleSelectTheme}
+      />
+
+      {/* Cross-Device Real-Time Sync & QR Pairing Modal */}
+      <DeviceSyncModal
+        isOpen={showDeviceSyncModal}
+        onClose={() => setShowDeviceSyncModal(false)}
+        entities={entities}
+        medicines={medicines}
+        sales={sales}
+        transactions={transactions}
+        expenses={expenses}
+        settings={settings}
+        onApplyImportedData={handleApplyImportedData}
+        onOpenSupabaseConfig={() => {
+          setShowDeviceSyncModal(false);
+          setShowSupabaseModal(true);
+        }}
+      />
+
       {/* Supabase Cloud Connection Modal */}
       <SupabaseSyncModal
         isOpen={showSupabaseModal}
@@ -341,8 +409,11 @@ export default function App() {
       <Header
         settings={settings}
         currentRole={currentRole}
+        currentThemeId={currentThemeId}
         onLock={() => setIsLocked(true)}
         onOpenAbout={() => setShowAboutModal(true)}
+        onOpenThemeSelector={() => setShowThemeModal(true)}
+        onOpenDeviceSync={() => setShowDeviceSyncModal(true)}
         onToggleMobileMenu={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
         onNewSaleShortcut={() => setCurrentTab('pos')}
         onOpenSuperAdmin={handleOpenSuperAdmin}
@@ -383,6 +454,8 @@ export default function App() {
           }}
           settings={settings}
           onOpenAbout={() => setShowAboutModal(true)}
+          onOpenThemeSelector={() => setShowThemeModal(true)}
+          onOpenDeviceSync={() => setShowDeviceSyncModal(true)}
           currentRole={currentRole}
           onOpenSuperAdmin={handleOpenSuperAdmin}
           isMobileOpen={isMobileDrawerOpen}
@@ -466,6 +539,8 @@ export default function App() {
             <SettingsView
               settings={settings}
               currentRole={currentRole}
+              currentThemeId={currentThemeId}
+              onSelectTheme={handleSelectTheme}
               onUpdateSettings={setSettings}
               onExportBackup={handleExportBackup}
               onImportBackup={handleImportBackup}
@@ -473,6 +548,7 @@ export default function App() {
               onOpenAbout={() => setShowAboutModal(true)}
               onNavigateToSuperAdmin={handleOpenSuperAdmin}
               onOpenSupabaseSync={() => setShowSupabaseModal(true)}
+              onOpenDeviceSync={() => setShowDeviceSyncModal(true)}
             />
           )}
 

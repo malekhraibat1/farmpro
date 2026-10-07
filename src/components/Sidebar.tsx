@@ -33,6 +33,8 @@ interface SidebarProps {
   onSelectTab: (tab: NavTab) => void;
   settings: AppSettings;
   onOpenAbout: () => void;
+  onOpenThemeSelector?: () => void;
+  onOpenDeviceSync?: () => void;
   currentRole?: UserRole;
   onOpenSuperAdmin?: () => void;
   isMobileOpen?: boolean;
@@ -46,6 +48,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   settings,
   onOpenAbout,
+  onOpenThemeSelector,
+  onOpenDeviceSync,
   currentRole = 'admin',
   onOpenSuperAdmin,
   isMobileOpen = false,
@@ -173,6 +177,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           );
         })}
+
+        {/* Quick Tools: Themes & Device Sync */}
+        <div className="pt-2 pb-1">
+          <div className="text-[10px] font-bold text-slate-400 px-3 py-1 uppercase tracking-wider">
+            المظهر والأجهزة
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 px-1">
+            {onOpenThemeSelector && (
+              <button
+                type="button"
+                onClick={onOpenThemeSelector}
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200/80 dark:border-slate-700 transition-all"
+              >
+                <span>🎨 الثيمات</span>
+              </button>
+            )}
+            {onOpenDeviceSync && (
+              <button
+                type="button"
+                onClick={onOpenDeviceSync}
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-200/80 dark:border-indigo-800/60 transition-all"
+              >
+                <span>📱💻 الأجهزة</span>
+              </button>
+            )}
+          </div>
+        </div>
       </nav>
 
       {/* Warnings quick box if low stock or expiry */}

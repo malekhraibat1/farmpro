@@ -13,12 +13,22 @@ import {
   CheckCircle2,
   KeyRound,
   FileJson,
+  Palette,
+  ArrowRightLeft,
+  QrCode,
+  Sparkles,
+  Sun,
+  Moon,
+  Check,
 } from 'lucide-react';
 import { AppSettings, UserRole } from '../types';
+import { ThemeId, AVAILABLE_THEMES } from '../services/themeService';
 
 interface SettingsViewProps {
   settings: AppSettings;
   currentRole: UserRole;
+  currentThemeId: ThemeId;
+  onSelectTheme: (themeId: ThemeId) => void;
   onUpdateSettings: (settings: AppSettings) => void;
   onExportBackup: () => void;
   onImportBackup: (jsonString: string) => boolean;
@@ -26,11 +36,14 @@ interface SettingsViewProps {
   onOpenAbout: () => void;
   onNavigateToSuperAdmin?: () => void;
   onOpenSupabaseSync?: () => void;
+  onOpenDeviceSync?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   currentRole,
+  currentThemeId,
+  onSelectTheme,
   onUpdateSettings,
   onExportBackup,
   onImportBackup,
@@ -38,6 +51,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenAbout,
   onNavigateToSuperAdmin,
   onOpenSupabaseSync,
+  onOpenDeviceSync,
 }) => {
   const [pharmacyName, setPharmacyName] = useState(settings.pharmacyName);
   const [phone, setPhone] = useState(settings.phone);
@@ -88,11 +102,147 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div>
         <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
           <Settings className="w-6 h-6 text-slate-700" />
-          <span>إعدادات النظام والنسخ الاحتياطي والتثبيت</span>
+          <span>إعدادات النظام، المظهر، وربط الأجهزة</span>
         </h2>
         <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-          بيانات الصيدلية، حماية النظام، النسخ الاحتياطي، وطريقة التثبيت على الآيفون والكمبيوتر
+          تخصيص ثيمات البرنامج، ربط الكمبيوتر والهاتف على نفس البيانات، والنسخ الاحتياطي
         </p>
+      </div>
+
+      {/* NEW SECTION 1: THEMES AND APPEARANCE */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+              <Palette className="w-5 h-5 text-indigo-600" />
+              <span>مظهر وثيمات البرنامج (Themes & Colors)</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              اختر المظهر واللون المريح لعينك في الصيدلية، مع دعم الوضع الليلي والنهاري
+            </p>
+          </div>
+          <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+            8 ثيمات مدمجة
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {AVAILABLE_THEMES.map((theme) => {
+            const isSelected = currentThemeId === theme.id;
+            return (
+              <button
+                key={theme.id}
+                type="button"
+                onClick={() => onSelectTheme(theme.id)}
+                className={`p-3 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2.5 relative overflow-hidden group hover:scale-[1.02] active:scale-[0.98] ${
+                  isSelected
+                    ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-600/20 shadow-md'
+                    : 'border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="font-bold text-slate-900 text-xs truncate">
+                    {theme.name}
+                  </span>
+                  {theme.isDark ? (
+                    <Moon className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  ) : (
+                    <Sun className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  )}
+                </div>
+
+                {/* Swatch dots */}
+                <div className="flex items-center gap-1.5">
+                  {theme.previewColors.map((col, idx) => (
+                    <span
+                      key={idx}
+                      className="w-4 h-4 rounded-full border border-black/10 shadow-xs"
+                      style={{ backgroundColor: col }}
+                    />
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 w-full text-[10px]">
+                  <span className={isSelected ? 'font-black text-indigo-700' : 'text-slate-400'}>
+                    {isSelected ? '✓ نشط حالياً' : 'تفعيل'}
+                  </span>
+                  {isSelected && (
+                    <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* NEW SECTION 2: CROSS-DEVICE SYNC & QR PAIRING */}
+      <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-950 rounded-3xl p-6 text-white shadow-xl space-y-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-indigo-800/60 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
+                ميزة مطلوبة ومدمجة بالكامل
+              </span>
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>تزامن مباشر حقيقي</span>
+              </span>
+            </div>
+            <h3 className="text-lg font-black text-white flex items-center gap-2">
+              <Laptop className="w-5 h-5 text-indigo-400" />
+              <span>+</span>
+              <Smartphone className="w-5 h-5 text-cyan-400" />
+              <span>ربط جهاز الحاسوب والهاتف على نفس الموقع ونفس البيانات</span>
+            </h3>
+            <p className="text-xs text-slate-300">
+              كيف تجعل الكاشير على الكمبيوتر وهاتف الصيدلي يفتحان نفس الصيدلية والفواتير حياً
+            </p>
+          </div>
+
+          {onOpenDeviceSync && (
+            <button
+              type="button"
+              onClick={onOpenDeviceSync}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition-all shrink-0 flex items-center gap-2"
+            >
+              <QrCode className="w-4 h-4" />
+              <span>فتح مركز ربط الأجهزة ومسح الـ QR ⚡</span>
+            </button>
+          )}
+        </div>
+
+        {/* 3 Methods Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/10 space-y-1.5">
+            <div className="font-bold text-cyan-300 flex items-center gap-1.5">
+              <span>1. الربط السحابي (Supabase)</span>
+            </div>
+            <p className="text-slate-300 text-[11px] leading-relaxed">
+              ربط مجاني مع سيرفر سحابي يجعل أي فاتورة تسجل على الكمبيوتر تظهر فوراً على هاتف الآيفون حتى لو كان الصيدلي في المنزل.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/10 space-y-1.5">
+            <div className="font-bold text-indigo-300 flex items-center gap-1.5">
+              <span>2. الربط عبر شبكة الراوتر (Wi-Fi)</span>
+            </div>
+            <p className="text-slate-300 text-[11px] leading-relaxed">
+              فتح رابط الـ IP الداخلي للكمبيوتر (مثل: <code>192.168.1.50:3000</code>) على هاتف الصيدلي المتصل بنفس شبكة الواي فاي.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/10 space-y-1.5">
+            <div className="font-bold text-emerald-300 flex items-center gap-1.5">
+              <span>3. مسح الـ QR السريع</span>
+            </div>
+            <p className="text-slate-300 text-[11px] leading-relaxed">
+              توليد رمز QR يحتوي على كافة إعدادات التزامن ومسحه بكاميرا الهاتف لفتح النظام كتطبيق فوري دون كتابة بيانات.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

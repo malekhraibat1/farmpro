@@ -1,0 +1,516 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Entity,
+  Medicine,
+  SaleInvoice,
+  FinancialTransaction,
+  Expense,
+  AppSettings,
+  UserRole,
+  TransactionType,
+} from './types';
+import { AppStorage, defaultSettings } from './services/storage';
+import { Header } from './components/Header';
+import { Sidebar, NavTab } from './components/Sidebar';
+import { MobileNav } from './components/MobileNav';
+import { AboutModal } from './components/AboutModal';
+import { SplashScreen } from './components/SplashScreen';
+import { SecurityLockModal } from './components/SecurityLockModal';
+import { DashboardView } from './views/DashboardView';
+import { EntitiesView } from './views/EntitiesView';
+import { POSView } from './views/POSView';
+import { InventoryView } from './views/InventoryView';
+import { ExpensesView } from './views/ExpensesView';
+import { ReportsView } from './views/ReportsView';
+import { SettingsView } from './views/SettingsView';
+import { SuperAdminView } from './views/SuperAdminView';
+import { SupabaseSyncModal } from './components/SupabaseSyncModal';
+import { AlertCircle, Key, Sparkles } from 'lucide-react';
+
+export default function App() {
+  // State from LocalStorage
+  const [entities, setEntities] = useState<Entity[]>(() => AppStorage.getEntities());
+  const [medicines, setMedicines] = useState<Medicine[]>(() => AppStorage.getMedicines());
+  const [sales, setSales] = useState<SaleInvoice[]>(() => AppStorage.getSales());
+  const [transactions, setTransactions] = useState<FinancialTransaction[]>(() =>
+    AppStorage.getTransactions()
+  );
+  const [expenses, setExpenses] = useState<Expense[]>(() => AppStorage.getExpenses());
+  const [settings, setSettings] = useState<AppSettings>(() => AppStorage.getSettings());
+
+  // UI Navigation & Modals
+  const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
+  const [currentRole, setCurrentRole] = useState<UserRole>('admin');
+  const [isLocked, setIsLocked] = useState(false);
+  const [showSplash, setShowSplash] = useState(false);
+
+  const handleDismissSplash = useCallback(() => {
+    setShowSplash(false);
+  }, []);
+
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showSupabaseModal, setShowSupabaseModal] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [selectedEntityForLedger, setSelectedEntityForLedger] = useState<Entity | null>(null);
+
+  // Sync to localStorage whenever states change
+  useEffect(() => {
+    AppStorage.saveEntities(entities);
+  }, [entities]);
+
+  useEffect(() => {
+    AppStorage.saveMedicines(medicines);
+  }, [medicines]);
+
+  useEffect(() => {
+    AppStorage.saveSales(sales);
+  }, [sales]);
+
+  useEffect(() => {
+    AppStorage.saveTransactions(transactions);
+  }, [transactions]);
+
+  useEffect(() => {
+    AppStorage.saveExpenses(expenses);
+  }, [expenses]);
+
+  useEffect(() => {
+    AppStorage.saveSettings(settings);
+  }, [settings]);
+
+  // Global Keyboard shortcuts (e.g. F2 for POS)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        setCurrentTab('pos');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Notifications calculation
+  const now = new Date();
+  const ninetyDaysLater = new Date();
+  ninetyDaysLater.setDate(now.getDate() + 90);
+
+  const nearExpiryCount = (medicines || []).filter(m => {
+    if (!m || !m.expiryDate) return false;
+    const exp = new Date(m.expiryDate);
+    return !isNaN(exp.getTime()) && exp <= ninetyDaysLater;
+  }).length;
+
+  const lowStockCount = (medicines || []).filter(m => m && m.stockQuantity <= m.minQuantity).length;
+
+  // Add Transaction & Update Entity Balance
+  const handleAddTransaction = (
+    entityId: string,
+    amount: number,
+    type: TransactionType,
+    direction: 'debit' | 'credit',
+    note: string,
+    referenceNumber: string
+  ) => {
+    const entity = entities.find(e => e.id === entityId);
+    if (!entity) return;
+
+    // Recalculate balance
+    // Debit = owes us more / increases positive balance
+    // Credit = paid us or we owe them / decreases balance
+    const newBalance =
+      direction === 'debit' ? entity.currentBalance + amount : entity.currentBalance - amount;
+
+    const nowStr = new Date();
+    const dateFormatted = `${nowStr.toISOString().split('T')[0]} ${nowStr.toLocaleTimeString('ar-EG', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`;
+
+    const newTx: FinancialTransaction = {
+      id: `tx-${Date.now()}`,
+      entityId,
+      entityName: entity.name,
+      date: dateFormatted,
+      amount,
+      type,
+      direction,
+      balanceAfter: newBalance,
+      referenceNumber: referenceNumber || `REF-${Math.floor(1000 + Math.random() * 9000)}`,
+      note,
+      recordedBy: currentRole === 'admin' ? 'م. مالك حريبات' : 'صيدلي مناوب',
+    };
+
+    setTransactions(prev => [newTx, ...prev]);
+
+    // Update entity
+    setEntities(prev =>
+      prev.map(e => (e.id === entityId ? { ...e, currentBalance: newBalance } : e))
+    );
+
+    // If currently selected entity for modal, update its state as well
+    if (selectedEntityForLedger && selectedEntityForLedger.id === entityId) {
+      setSelectedEntityForLedger(prev => (prev ? { ...prev, currentBalance: newBalance } : null));
+    }
+  };
+
+  // Add Entity
+  const handleAddEntity = (newEntityData: Omit<Entity, 'id' | 'createdAt'>) => {
+    const newEnt: Entity = {
+      ...newEntityData,
+      id: `ent-${Date.now()}`,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setEntities(prev => [newEnt, ...prev]);
+  };
+
+  // Complete a Sale Invoice from POS
+  const handleCompleteSale = (sale: SaleInvoice) => {
+    // 1. Save invoice
+    setSales(prev => [sale, ...prev]);
+
+    // 2. Decrement medicine stock quantities
+    setMedicines(prev =>
+      prev.map(med => {
+        const itemSold = sale.items.find(item => item.medicineId === med.id);
+        if (itemSold) {
+          return {
+            ...med,
+            stockQuantity: Math.max(0, med.stockQuantity - itemSold.quantity),
+          };
+        }
+        return med;
+      })
+    );
+
+    // 3. If sold on credit for an entity, register financial transaction and update balance
+    if (sale.entityId && sale.remainingAmount > 0) {
+      handleAddTransaction(
+        sale.entityId,
+        sale.remainingAmount,
+        'invoice',
+        'debit',
+        `فاتورة مبيعات آجل رقم ${sale.invoiceNumber}`,
+        sale.invoiceNumber
+      );
+    }
+  };
+
+  // Inventory handlers
+  const handleAddMedicine = (newMed: Omit<Medicine, 'id'>) => {
+    const med: Medicine = {
+      ...newMed,
+      id: `med-${Date.now()}`,
+    };
+    setMedicines(prev => [med, ...prev]);
+  };
+
+  const handleUpdateMedicine = (updatedMed: Medicine) => {
+    setMedicines(prev => prev.map(m => (m.id === updatedMed.id ? updatedMed : m)));
+  };
+
+  const handleDeleteMedicine = (id: string) => {
+    setMedicines(prev => prev.filter(m => m.id !== id));
+  };
+
+  // Expenses handlers
+  const handleAddExpense = (newExp: Omit<Expense, 'id'>) => {
+    const exp: Expense = {
+      ...newExp,
+      id: `exp-${Date.now()}`,
+    };
+    setExpenses(prev => [exp, ...prev]);
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    setExpenses(prev => prev.filter(e => e.id !== id));
+  };
+
+  // Backup & Restore
+  const handleExportBackup = () => {
+    const json = AppStorage.exportFullBackup();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `نسخة_فارما_برو_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportBackup = (jsonString: string): boolean => {
+    const ok = AppStorage.importFullBackup(jsonString);
+    if (ok) {
+      setEntities(AppStorage.getEntities());
+      setMedicines(AppStorage.getMedicines());
+      setSales(AppStorage.getSales());
+      setTransactions(AppStorage.getTransactions());
+      setExpenses(AppStorage.getExpenses());
+      setSettings(AppStorage.getSettings());
+    }
+    return ok;
+  };
+
+  const handleResetData = () => {
+    AppStorage.resetToDefault();
+    setEntities(AppStorage.getEntities());
+    setMedicines(AppStorage.getMedicines());
+    setSales(AppStorage.getSales());
+    setTransactions(AppStorage.getTransactions());
+    setExpenses(AppStorage.getExpenses());
+    setSettings(AppStorage.getSettings());
+  };
+
+  // Open entity ledger from anywhere
+  const handleOpenEntityLedger = (entity: Entity) => {
+    setSelectedEntityForLedger(entity);
+  };
+
+  // Super Admin Handlers
+  const handleOpenSuperAdmin = () => {
+    setCurrentRole('super_admin');
+    setCurrentTab('super_admin');
+  };
+
+  const handleClearSalesAndLedgers = () => {
+    setSales([]);
+    setTransactions([]);
+    AppStorage.saveSales([]);
+    AppStorage.saveTransactions([]);
+  };
+
+  const handleApplyImportedData = (data: {
+    entities: Entity[];
+    medicines: Medicine[];
+    sales: SaleInvoice[];
+    transactions: FinancialTransaction[];
+    expenses: Expense[];
+  }) => {
+    setEntities(data.entities);
+    setMedicines(data.medicines);
+    setSales(data.sales);
+    setTransactions(data.transactions);
+    setExpenses(data.expenses);
+    AppStorage.saveEntities(data.entities);
+    AppStorage.saveMedicines(data.medicines);
+    AppStorage.saveSales(data.sales);
+    AppStorage.saveTransactions(data.transactions);
+    AppStorage.saveExpenses(data.expenses);
+  };
+
+  // Check license expiry
+  const todayDate = new Date();
+  const licenseExpiry = new Date(settings.license?.expiryDate || '2099-12-31');
+  const isLicenseExpired =
+    !settings.license?.isActivated ||
+    (settings.license?.planType !== 'lifetime' && licenseExpiry < todayDate);
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
+      {/* Splash Screen intro on load */}
+      {showSplash && (
+        <SplashScreen onDismiss={handleDismissSplash} autoClose={true} />
+      )}
+
+      {/* Lock Screen Modal */}
+      <SecurityLockModal
+        isOpen={isLocked}
+        onUnlock={() => setIsLocked(false)}
+        currentRole={currentRole}
+        onRoleChange={role => {
+          setCurrentRole(role);
+          if (role === 'super_admin') setCurrentTab('super_admin');
+        }}
+        correctPin={settings.pincode}
+        superAdminPin={settings.superAdminPin || '7777'}
+        onOpenSuperAdminDirectly={handleOpenSuperAdmin}
+      />
+
+      {/* About Engineer Malik Hraibat Modal */}
+      <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} />
+
+      {/* Supabase Cloud Connection Modal */}
+      <SupabaseSyncModal
+        isOpen={showSupabaseModal}
+        onClose={() => setShowSupabaseModal(false)}
+        entities={entities}
+        medicines={medicines}
+        sales={sales}
+        transactions={transactions}
+        expenses={expenses}
+        settings={settings}
+        onApplyImportedData={handleApplyImportedData}
+      />
+
+      {/* Top Application Header */}
+      <Header
+        settings={settings}
+        currentRole={currentRole}
+        onLock={() => setIsLocked(true)}
+        onOpenAbout={() => setShowAboutModal(true)}
+        onToggleMobileMenu={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
+        onNewSaleShortcut={() => setCurrentTab('pos')}
+        onOpenSuperAdmin={handleOpenSuperAdmin}
+        onOpenSupabaseSync={() => setShowSupabaseModal(true)}
+      />
+
+      {/* License Expiration Banner if expired and not in Super Admin view */}
+      {isLicenseExpired && currentTab !== 'super_admin' && (
+        <div className="bg-gradient-to-r from-rose-600 to-amber-600 text-white px-4 py-2 text-xs flex items-center justify-between shadow-md z-20">
+          <div className="flex items-center gap-2 font-bold">
+            <AlertCircle className="w-4 h-4 animate-bounce" />
+            <span>
+              تنبيه الترخيص: فترة اشتراك البرنامج منتهية أو بحاجة لتنشيط. يرجى التواصل مع المهندس مالك حريبات للتجديد.
+            </span>
+          </div>
+          <button
+            onClick={handleOpenSuperAdmin}
+            className="px-3 py-1 rounded-xl bg-white text-rose-900 font-black text-xs hover:bg-rose-50 transition-colors shrink-0 flex items-center gap-1"
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span>تنشيط النسخة (سوبر أدمن)</span>
+          </button>
+        </div>
+      )}
+
+      {/* Main Layout Area */}
+      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+        {/* Desktop Sidebar + Mobile Drawer */}
+        <Sidebar
+          currentTab={currentTab}
+          onSelectTab={tab => {
+            if (tab === 'super_admin') {
+              handleOpenSuperAdmin();
+            } else {
+              setCurrentTab(tab);
+            }
+            setSelectedEntityForLedger(null);
+          }}
+          settings={settings}
+          onOpenAbout={() => setShowAboutModal(true)}
+          currentRole={currentRole}
+          onOpenSuperAdmin={handleOpenSuperAdmin}
+          isMobileOpen={isMobileDrawerOpen}
+          onCloseMobile={() => setIsMobileDrawerOpen(false)}
+          nearExpiryCount={nearExpiryCount}
+          lowStockCount={lowStockCount}
+        />
+
+        {/* Dynamic View Panel */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 pb-20 md:pb-8">
+          {currentTab === 'dashboard' && (
+            <DashboardView
+              entities={entities}
+              medicines={medicines}
+              sales={sales}
+              transactions={transactions}
+              settings={settings}
+              currentRole={currentRole}
+              onNavigate={tab => setCurrentTab(tab)}
+              onSelectEntity={handleOpenEntityLedger}
+              onNewSale={() => setCurrentTab('pos')}
+            />
+          )}
+
+          {currentTab === 'entities' && (
+            <EntitiesView
+              entities={entities}
+              transactions={transactions}
+              settings={settings}
+              onAddEntity={handleAddEntity}
+              onAddTransaction={handleAddTransaction}
+              selectedEntityForLedger={selectedEntityForLedger}
+              onOpenLedgerModal={handleOpenEntityLedger}
+              onCloseLedgerModal={() => setSelectedEntityForLedger(null)}
+            />
+          )}
+
+          {currentTab === 'pos' && (
+            <POSView
+              medicines={medicines}
+              entities={entities}
+              settings={settings}
+              currentRole={currentRole}
+              onCompleteSale={handleCompleteSale}
+            />
+          )}
+
+          {currentTab === 'inventory' && (
+            <InventoryView
+              medicines={medicines}
+              settings={settings}
+              currentRole={currentRole}
+              onAddMedicine={handleAddMedicine}
+              onUpdateMedicine={handleUpdateMedicine}
+              onDeleteMedicine={handleDeleteMedicine}
+            />
+          )}
+
+          {currentTab === 'expenses' && (
+            <ExpensesView
+              expenses={expenses}
+              settings={settings}
+              currentRole={currentRole}
+              onAddExpense={handleAddExpense}
+              onDeleteExpense={handleDeleteExpense}
+            />
+          )}
+
+          {currentTab === 'reports' && (
+            <ReportsView
+              sales={sales}
+              expenses={expenses}
+              medicines={medicines}
+              entities={entities}
+              settings={settings}
+              currentRole={currentRole}
+            />
+          )}
+
+          {currentTab === 'settings' && (
+            <SettingsView
+              settings={settings}
+              currentRole={currentRole}
+              onUpdateSettings={setSettings}
+              onExportBackup={handleExportBackup}
+              onImportBackup={handleImportBackup}
+              onResetData={handleResetData}
+              onOpenAbout={() => setShowAboutModal(true)}
+              onNavigateToSuperAdmin={handleOpenSuperAdmin}
+              onOpenSupabaseSync={() => setShowSupabaseModal(true)}
+            />
+          )}
+
+          {currentTab === 'super_admin' && (
+            <SuperAdminView
+              settings={settings}
+              entities={entities}
+              medicines={medicines}
+              sales={sales}
+              transactions={transactions}
+              onUpdateSettings={setSettings}
+              onUpdateEntities={setEntities}
+              onUpdateMedicines={setMedicines}
+              onClearSalesAndLedgers={handleClearSalesAndLedgers}
+              onExitSuperAdmin={() => {
+                setCurrentRole('admin');
+                setCurrentTab('dashboard');
+              }}
+              onOpenSupabaseSync={() => setShowSupabaseModal(true)}
+            />
+          )}
+        </main>
+      </div>
+
+      {/* Mobile Bottom Navigation Dock for iPhone / Mobile Viewport */}
+      <MobileNav
+        currentTab={currentTab}
+        onSelectTab={tab => {
+          setCurrentTab(tab);
+          setSelectedEntityForLedger(null);
+        }}
+        onOpenMenu={() => setIsMobileDrawerOpen(true)}
+      />
+    </div>
+  );
+}

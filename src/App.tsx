@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Entity,
   Medicine,
@@ -42,12 +42,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [currentRole, setCurrentRole] = useState<UserRole>('admin');
   const [isLocked, setIsLocked] = useState(false);
-  const [showSplash, setShowSplash] = useState(false);
-
-  const handleDismissSplash = useCallback(() => {
-    setShowSplash(false);
-  }, []);
-
+  const [showSplash, setShowSplash] = useState(true);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showSupabaseModal, setShowSupabaseModal] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
@@ -309,7 +304,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
       {/* Splash Screen intro on load */}
       {showSplash && (
-        <SplashScreen onDismiss={handleDismissSplash} autoClose={true} />
+        <SplashScreen onDismiss={() => setShowSplash(false)} autoClose={true} />
       )}
 
       {/* Lock Screen Modal */}

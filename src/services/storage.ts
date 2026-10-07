@@ -514,11 +514,8 @@ const inMemoryStorage: Record<string, string> = {};
 
 function safeGetItem(key: string): string | null {
   try {
-    if (typeof window !== 'undefined') {
-      const storage = window.localStorage;
-      if (storage) {
-        return storage.getItem(key);
-      }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem(key);
     }
   } catch (e) {
     console.warn('localStorage getItem failed (Safari private mode/restricted):', e);
@@ -529,11 +526,8 @@ function safeGetItem(key: string): string | null {
 function safeSetItem(key: string, value: string): void {
   inMemoryStorage[key] = value;
   try {
-    if (typeof window !== 'undefined') {
-      const storage = window.localStorage;
-      if (storage) {
-        storage.setItem(key, value);
-      }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(key, value);
     }
   } catch (e) {
     console.warn('localStorage setItem failed (Safari private mode/restricted):', e);
@@ -542,25 +536,14 @@ function safeSetItem(key: string, value: string): void {
 
 export class AppStorage {
   static getEntities(): Entity[] {
-    try {
-      const data = safeGetItem(STORAGE_KEYS.ENTITIES);
-      if (!data) {
-        this.saveEntities(initialEntities);
-        return initialEntities;
-      }
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.filter(Boolean).map(e => ({
-          ...e,
-          id: e.id || `ent-${Math.floor(Date.now() + Math.random() * 1000)}`,
-          name: e.name || 'جهة غير معرّفة',
-          type: e.type || 'pharmacy',
-          currentBalance: typeof e.currentBalance === 'number' && !isNaN(e.currentBalance) ? e.currentBalance : 0,
-          creditLimit: typeof e.creditLimit === 'number' && !isNaN(e.creditLimit) ? e.creditLimit : 5000,
-          createdAt: e.createdAt || '2026-08-01',
-        }));
-      }
+    const data = safeGetItem(STORAGE_KEYS.ENTITIES);
+    if (!data) {
+      this.saveEntities(initialEntities);
       return initialEntities;
+    }
+    try {
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : initialEntities;
     } catch {
       return initialEntities;
     }
@@ -571,27 +554,14 @@ export class AppStorage {
   }
 
   static getMedicines(): Medicine[] {
-    try {
-      const data = safeGetItem(STORAGE_KEYS.MEDICINES);
-      if (!data) {
-        this.saveMedicines(initialMedicines);
-        return initialMedicines;
-      }
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.filter(Boolean).map(m => ({
-          ...m,
-          id: m.id || `med-${Math.floor(Date.now() + Math.random() * 1000)}`,
-          barcode: m.barcode || '000000',
-          tradeName: m.tradeName || 'دواء',
-          stockQuantity: typeof m.stockQuantity === 'number' && !isNaN(m.stockQuantity) ? m.stockQuantity : 0,
-          minQuantity: typeof m.minQuantity === 'number' && !isNaN(m.minQuantity) ? m.minQuantity : 5,
-          purchasePrice: typeof m.purchasePrice === 'number' && !isNaN(m.purchasePrice) ? m.purchasePrice : 0,
-          sellPrice: typeof m.sellPrice === 'number' && !isNaN(m.sellPrice) ? m.sellPrice : 0,
-          expiryDate: m.expiryDate || '2028-12-31',
-        }));
-      }
+    const data = safeGetItem(STORAGE_KEYS.MEDICINES);
+    if (!data) {
+      this.saveMedicines(initialMedicines);
       return initialMedicines;
+    }
+    try {
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : initialMedicines;
     } catch {
       return initialMedicines;
     }
@@ -602,14 +572,14 @@ export class AppStorage {
   }
 
   static getSales(): SaleInvoice[] {
+    const data = safeGetItem(STORAGE_KEYS.SALES);
+    if (!data) {
+      this.saveSales(initialSales);
+      return initialSales;
+    }
     try {
-      const data = safeGetItem(STORAGE_KEYS.SALES);
-      if (!data) {
-        this.saveSales(initialSales);
-        return initialSales;
-      }
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed.filter(Boolean) : initialSales;
+      return Array.isArray(parsed) ? parsed : initialSales;
     } catch {
       return initialSales;
     }
@@ -620,14 +590,14 @@ export class AppStorage {
   }
 
   static getTransactions(): FinancialTransaction[] {
+    const data = safeGetItem(STORAGE_KEYS.TRANSACTIONS);
+    if (!data) {
+      this.saveTransactions(initialTransactions);
+      return initialTransactions;
+    }
     try {
-      const data = safeGetItem(STORAGE_KEYS.TRANSACTIONS);
-      if (!data) {
-        this.saveTransactions(initialTransactions);
-        return initialTransactions;
-      }
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed.filter(Boolean) : initialTransactions;
+      return Array.isArray(parsed) ? parsed : initialTransactions;
     } catch {
       return initialTransactions;
     }
@@ -638,14 +608,14 @@ export class AppStorage {
   }
 
   static getExpenses(): Expense[] {
+    const data = safeGetItem(STORAGE_KEYS.EXPENSES);
+    if (!data) {
+      this.saveExpenses(initialExpenses);
+      return initialExpenses;
+    }
     try {
-      const data = safeGetItem(STORAGE_KEYS.EXPENSES);
-      if (!data) {
-        this.saveExpenses(initialExpenses);
-        return initialExpenses;
-      }
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed.filter(Boolean) : initialExpenses;
+      return Array.isArray(parsed) ? parsed : initialExpenses;
     } catch {
       return initialExpenses;
     }
@@ -656,12 +626,12 @@ export class AppStorage {
   }
 
   static getSettings(): AppSettings {
+    const data = safeGetItem(STORAGE_KEYS.SETTINGS);
+    if (!data) {
+      this.saveSettings(defaultSettings);
+      return defaultSettings;
+    }
     try {
-      const data = safeGetItem(STORAGE_KEYS.SETTINGS);
-      if (!data) {
-        this.saveSettings(defaultSettings);
-        return defaultSettings;
-      }
       const parsed = JSON.parse(data);
       if (parsed && typeof parsed === 'object') {
         return {

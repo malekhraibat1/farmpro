@@ -236,7 +236,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(entities || []).slice(0, 6).map(ent => (
+            {entities.slice(0, 6).map(ent => (
               <div
                 key={ent.id}
                 onClick={() => onSelectEntity(ent)}
@@ -306,7 +306,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200/80 p-4 shadow-sm space-y-3">
-            {(transactions || []).slice(0, 5).map(tx => (
+            {transactions.slice(0, 5).map(tx => (
               <div
                 key={tx.id}
                 className="p-3 rounded-2xl bg-slate-50/80 hover:bg-slate-100/80 transition-all border border-slate-100"
@@ -324,7 +324,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
                   <span>{tx.note || tx.referenceNumber}</span>
-                  <span className="font-mono text-[10px]">{tx.date ? tx.date.split(' ')[0] : ''}</span>
+                  <span className="font-mono text-[10px]">{tx.date.split(' ')[0]}</span>
                 </div>
               </div>
             ))}

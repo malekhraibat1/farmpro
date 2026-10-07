@@ -76,11 +76,7 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
         t.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase())
       );
     })
-    .sort((a, b) => {
-      const timeB = b && b.date ? new Date(b.date.replace(' ', 'T')).getTime() : 0;
-      const timeA = a && a.date ? new Date(a.date.replace(' ', 'T')).getTime() : 0;
-      return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
-    });
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const totalDebit = transactions
     .filter(t => t.entityId === entity.id && t.direction === 'debit')

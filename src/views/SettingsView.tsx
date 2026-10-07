@@ -46,7 +46,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [pincode, setPincode] = useState(settings.pincode);
   const [isPinRequired, setIsPinRequired] = useState(settings.isPinRequired);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [importStatus, setImportStatus] = useState<{ message: string; success: boolean } | null>(null);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,13 +72,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (content) {
         const success = onImportBackup(content);
         if (success) {
-          setImportStatus({ message: 'تم استعادة النسخة الاحتياطية بنجاح!', success: true });
-          setTimeout(() => {
-            window.location.reload();
-          }, 1200);
+          alert('تم استعادة النسخة الاحتياطية بنجاح!');
+          window.location.reload();
         } else {
-          setImportStatus({ message: 'حدث خطأ في قراءة ملف النسخة الاحتياطية. يرجى التأكد من صحة الملف.', success: false });
-          setTimeout(() => setImportStatus(null), 4000);
+          alert('حدث خطأ في قراءة ملف النسخة الاحتياطية.');
         }
       }
     };
@@ -98,18 +94,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           بيانات الصيدلية، حماية النظام، النسخ الاحتياطي، وطريقة التثبيت على الآيفون والكمبيوتر
         </p>
       </div>
-
-      {importStatus && (
-        <div
-          className={`p-4 rounded-2xl flex items-center gap-2 text-xs font-bold ${
-            importStatus.success
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border border-rose-200'
-          }`}
-        >
-          <span>{importStatus.message}</span>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Form: Pharmacy Info & PIN (2 cols) */}

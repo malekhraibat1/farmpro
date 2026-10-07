@@ -1,8 +1,6 @@
 {
-  "name": "Remix فارما برو | نظام إدارة ومحاسبة الصيدلية الذكي",
+  "name": "فارما برو | نظام إدارة ومحاسبة الصيدلية الذكي",
   "description": "برنامج محاسبة ودفتر حسابات متكامل للصيدليات والشركات، متوافق مع الآيفون والكمبيوتر. تصميم المهندس مالك حريبات 0594345464.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -12,8 +12,11 @@ import {
   Sparkles,
   ArrowUpDown,
   Filter,
+  FileSpreadsheet,
+  Download,
 } from 'lucide-react';
 import { Medicine, AppSettings, UserRole } from '../types';
+import { ExcelImportModal } from '../components/ExcelImportModal';
 
 interface InventoryViewProps {
   medicines: Medicine[];
@@ -22,6 +25,7 @@ interface InventoryViewProps {
   onAddMedicine: (med: Omit<Medicine, 'id'>) => void;
   onUpdateMedicine: (med: Medicine) => void;
   onDeleteMedicine: (id: string) => void;
+  onBulkImportMedicines?: (newMeds: Medicine[], updatedMeds: Medicine[]) => void;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
@@ -31,12 +35,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   onAddMedicine,
   onUpdateMedicine,
   onDeleteMedicine,
+  onBulkImportMedicines,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'near_expiry' | 'expired' | 'low_stock'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showExcelModal, setShowExcelModal] = useState(false);
   const [editingMed, setEditingMed] = useState<Medicine | null>(null);
+  const [importNotification, setImportNotification] = useState<{ newCount: number; updatedCount: number } | null>(null);
 
   // Form states
   const [barcode, setBarcode] = useState('');
@@ -157,6 +164,19 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setShowAddModal(false);
   };
 
+  const handleImportSuccess = (newlyAdded: Medicine[], updatedMeds: Medicine[]) => {
+    if (onBulkImportMedicines) {
+      onBulkImportMedicines(newlyAdded, updatedMeds);
+    } else {
+      newlyAdded.forEach(m => onAddMedicine(m));
+      updatedMeds.forEach(m => onUpdateMedicine(m));
+    }
+    setImportNotification({
+      newCount: newlyAdded.length,
+      updatedCount: updatedMeds.length,
+    });
+  };
+
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       {/* Top Header */}
@@ -171,14 +191,50 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAdd}
-          className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-600/20 active:scale-95 transition-all flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>إضافة دواء / صنف جديد</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowExcelModal(true)}
+            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex items-center gap-2"
+            title="استيراد أصناف وأسعار الأدوية من ملف إكسل أو CSV دفعة واحدة"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>استيراد أصناف من إكسل (Excel)</span>
+          </button>
+
+          <button
+            onClick={handleOpenAdd}
+            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-600/20 active:scale-95 transition-all flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>إضافة دواء / صنف جديد</span>
+          </button>
+        </div>
       </div>
+
+      {/* Success Notification Banner for Excel Import */}
+      {importNotification && (
+        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-black">
+                🎉 تم استيراد بيانات الإكسل بنجاح وحفظها في الصيدلية!
+              </h4>
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
+                تمت إضافة <b>{importNotification.newCount}</b> صنف جديد، وتحديث أسعار ومخزون <b>{importNotification.updatedCount}</b> صنف موجود مسبقاً.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setImportNotification(null)}
+            className="text-xs text-emerald-700 hover:text-emerald-900 font-bold px-2 py-1 rounded-lg hover:bg-emerald-100"
+          >
+            إغلاق
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="space-y-3">
@@ -268,8 +324,28 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               {filteredMedicines.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">
-                    <Boxes className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                    <p>لا توجد أدوية مطابقة للبحث</p>
+                    <Boxes className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+                    <p className="font-bold text-slate-700 text-sm">
+                      {medicines.length === 0 ? 'لا توجد أصناف مسجلة في هذه الصيدلية بعد' : 'لا توجد أدوية مطابقة للبحث أو التصفية'}
+                    </p>
+                    {medicines.length === 0 && (
+                      <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                        <button
+                          onClick={() => setShowExcelModal(true)}
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex items-center gap-2"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                          <span>استيراد الأصناف والأسعار من إكسل الآن</span>
+                        </button>
+                        <button
+                          onClick={handleOpenAdd}
+                          className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md shadow-cyan-600/20 active:scale-95 transition-all flex items-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>إضافة أول صنف يدوياً</span>
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -539,6 +615,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Excel Import Modal */}
+      <ExcelImportModal
+        isOpen={showExcelModal}
+        onClose={() => setShowExcelModal(false)}
+        existingMedicines={medicines}
+        settings={settings}
+        onImportSuccess={handleImportSuccess}
+      />
     </div>
   );
 };

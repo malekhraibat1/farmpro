@@ -22,6 +22,10 @@ import {
   ArrowRight,
   AlertTriangle,
   Info,
+  User,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { InstanceService, PharmacyInstance } from '../services/instanceService';
 import { AppStorage } from '../services/storage';
@@ -56,9 +60,19 @@ export function PharmacyInstanceManagerModal({
   const [formPhone, setFormPhone] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [formCode, setFormCode] = useState('');
+  const [formUsername, setFormUsername] = useState('admin');
+  const [formPassword, setFormPassword] = useState('123456');
+  const [formIsProtected, setFormIsProtected] = useState(true);
   const [formInitEmpty, setFormInitEmpty] = useState(true);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
+
+  // Edit credentials state for active instance
+  const [isEditingCredentials, setIsEditingCredentials] = useState(false);
+  const [editUsername, setEditUsername] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editIsProtected, setEditIsProtected] = useState(true);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
 
   // Delete confirm state
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -75,8 +89,12 @@ export function PharmacyInstanceManagerModal({
       loadInstances();
       setFormError('');
       setFormSuccess('');
-      // Suggest random code for new form
+      // Suggest random code and credentials for new form
       setFormCode(`PH-${Math.floor(100 + Math.random() * 900)}`);
+      setFormUsername('admin');
+      setFormPassword(`${Math.floor(100000 + Math.random() * 900000)}`);
+      setFormIsProtected(true);
+      setIsEditingCredentials(false);
     }
   }, [isOpen]);
 
@@ -115,6 +133,9 @@ export function PharmacyInstanceManagerModal({
         phone: formPhone.trim() || '0590000000',
         address: formAddress.trim(),
         customCode: formCode.trim().toUpperCase(),
+        username: formUsername.trim() || 'admin',
+        password: formPassword.trim() || '123456',
+        isProtected: formIsProtected,
         initEmpty: formInitEmpty,
       });
 
@@ -149,6 +170,34 @@ export function PharmacyInstanceManagerModal({
     } catch (err: any) {
       setFormError(err?.message || 'حدث خطأ أثناء إنشاء النسخة');
     }
+  };
+
+  const handleOpenEditCredentials = () => {
+    if (currentInstance) {
+      setEditUsername(currentInstance.username || 'admin');
+      setEditPassword(currentInstance.password || '123456');
+      setEditIsProtected(currentInstance.isProtected !== false);
+      setIsEditingCredentials(true);
+    }
+  };
+
+  const handleSaveCredentials = (e: React.FormEvent) => {
+    e.preventDefault();
+    InstanceService.updateInstance(activeInstanceId, {
+      username: editUsername.trim() || 'admin',
+      password: editPassword.trim() || '123456',
+      isProtected: editIsProtected,
+    });
+    loadInstances();
+    setIsEditingCredentials(false);
+  };
+
+  const handleCopyLinkWithCredentials = (inst: PharmacyInstance) => {
+    const url = InstanceService.buildInstanceUrl(inst.id);
+    const text = `🏢 بيانات الدخول لصيدلية: ${inst.pharmacyName}\n🔗 الرابط المباشر:\n${url}\n\n👤 اسم المستخدم: ${inst.username || 'admin'}\n🔑 كلمة المرور: ${inst.password || '123456'}\n🛡️ كود النسخة: ${inst.code}`;
+    navigator.clipboard.writeText(text);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
   };
 
   const handleSwitchInstance = (instanceId: string) => {
@@ -383,6 +432,138 @@ export function PharmacyInstanceManagerModal({
                 </div>
               </div>
 
+              {/* Security & Credentials Card */}
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-indigo-600" />
+                      <span>حماية النسخة (اسم المستخدم وكلمة السر)</span>
+                      {currentInstance.isProtected !== false ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                          ✓ محمية بكلمة مرور
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
+                          مفتوحة بدون قفل
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      بيانات الدخول المعتمدة لصيدلي أو موظفي هذا الفرع عند فتح الرابط
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleCopyLinkWithCredentials(currentInstance)}
+                      className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                      title="نسخ الرابط مع اسم المستخدم وكلمة السر معاً"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>نسخ الرابط + بيانات الدخول</span>
+                    </button>
+
+                    <button
+                      onClick={handleOpenEditCredentials}
+                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition"
+                    >
+                      تعديل
+                    </button>
+                  </div>
+                </div>
+
+                {!isEditingCredentials ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 flex items-center gap-1.5 font-medium">
+                        <User className="w-3.5 h-3.5" />
+                        <span>اسم المستخدم:</span>
+                      </span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                        {currentInstance.username || 'admin'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 flex items-center gap-1.5 font-medium">
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>كلمة المرور:</span>
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                          {showCurrentPassword ? currentInstance.password || '123' : '••••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                          className="p-1 text-slate-400 hover:text-slate-600"
+                        >
+                          {showCurrentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveCredentials} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          اسم المستخدم
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={editUsername}
+                          onChange={e => setEditUsername(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          كلمة المرور الجديدة
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={editPassword}
+                          onChange={e => setEditPassword(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editIsProtected}
+                          onChange={e => setEditIsProtected(e.target.checked)}
+                          className="rounded text-indigo-600"
+                        />
+                        <span>تفعيل قفل الدخول بهذه البيانات عند فتح الرابط</span>
+                      </label>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingCredentials(false)}
+                          className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg"
+                        >
+                          إلغاء
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+                        >
+                          حفظ البيانات
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </div>
+
               {/* Quick Actions */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div
@@ -541,6 +722,61 @@ export function PharmacyInstanceManagerModal({
                 </div>
               </div>
 
+              {/* Username & Password Protection for New Instance */}
+              <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      بيانات حماية الدخول (اسم مستخدم وكلمة مرور لهذه الصيدلية)
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-1.5 text-xs text-indigo-700 dark:text-indigo-300 font-bold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formIsProtected}
+                      onChange={e => setFormIsProtected(e.target.checked)}
+                      className="rounded text-indigo-600"
+                    />
+                    <span>تفعيل القفل بكلمة مرور</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
+                      اسم المستخدم (Username)
+                    </label>
+                    <input
+                      type="text"
+                      required={formIsProtected}
+                      value={formUsername}
+                      onChange={e => setFormUsername(e.target.value)}
+                      placeholder="مثال: admin"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-sm focus:border-indigo-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
+                      كلمة المرور السرية (Password)
+                    </label>
+                    <input
+                      type="text"
+                      required={formIsProtected}
+                      value={formPassword}
+                      onChange={e => setFormPassword(e.target.value)}
+                      placeholder="مثال: 123456"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold font-mono text-sm focus:border-indigo-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-indigo-900/80 dark:text-indigo-300/80">
+                  💡 سيُطلب من موظفي هذه الصيدلية إدخال اسم المستخدم وكلمة المرور هذه عند فتح الرابط المباشر الخاص بهم.
+                </p>
+              </div>
+
               {/* Data Initialization Choice */}
               <div className="space-y-2 pt-2">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -676,7 +912,7 @@ export function PharmacyInstanceManagerModal({
                           </div>
 
                           {/* Quick Stats Badges */}
-                          <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-600 dark:text-slate-300">
+                          <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-600 dark:text-slate-300 flex-wrap">
                             <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
                               💊 {stats.medicinesCount} دواء
                             </span>
@@ -686,6 +922,12 @@ export function PharmacyInstanceManagerModal({
                             <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
                               🤝 {stats.entitiesCount} جهة
                             </span>
+                            {inst.isProtected !== false && (
+                              <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold flex items-center gap-1">
+                                <Lock className="w-3 h-3" />
+                                <span>{inst.username || 'admin'}</span>
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -706,11 +948,12 @@ export function PharmacyInstanceManagerModal({
                           )}
 
                           <button
-                            onClick={() => handleCopyDirectLink(instUrl)}
-                            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
-                            title="نسخ الرابط المباشر لهذه الصيدلية"
+                            onClick={() => handleCopyLinkWithCredentials(inst)}
+                            className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                            title="نسخ الرابط مع اسم المستخدم وكلمة السر"
                           >
-                            <Copy className="w-4 h-4" />
+                            <Copy className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">نسخ الرابط والبيانات</span>
                           </button>
 
                           <button
@@ -828,6 +1071,66 @@ export function PharmacyInstanceManagerModal({
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed pr-10">
                   يمكنك تجهيز أدوية وإعدادات صيدلية معينة على جهازك، ثم الضغط على <strong>"تصدير حزمة الصيدلية"</strong> وإرسال ملف JSON للصيدلية لتقوم باستيراده بنقرة واحدة عبر صفحة الإعدادات، فيعمل النظام معزولاً ومستقلاً تماماً على أجهزتهم.
                 </p>
+              </div>
+
+              {/* Method 4: Vercel Cloud Deployment & Custom Links */}
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-indigo-800 space-y-4">
+                <div className="flex items-center gap-3">
+                  <span className="w-7 h-7 rounded-full bg-cyan-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0">
+                    4
+                  </span>
+                  <div>
+                    <h4 className="font-black text-white text-base flex items-center gap-2">
+                      <span>🚀 خطوات رفع النسخ على موقع Vercel وتخصيص رابط لكل صيدلية</span>
+                      <span className="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-full">
+                        دليل شامل
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      كيف ترفع المشروع على Vercel مجاناً وتمنح كل صيدلية رابطاً خاصاً محمياً باسم مستخدم وكلمة سر:
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pr-2 text-xs">
+                  <div className="p-3 rounded-xl bg-white/10 border border-white/10 space-y-1">
+                    <div className="font-bold text-cyan-300">خطوة 1: رفع المشروع إلى GitHub</div>
+                    <p className="text-slate-300 text-[11px] leading-relaxed">
+                      ارفع كود هذا البرنامج إلى حسابك في <b>GitHub</b> في مستودع جديد (Repository) مثل: <code>pharma-pro</code>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-white/10 border border-white/10 space-y-1">
+                    <div className="font-bold text-emerald-300">خطوة 2: ربط المستودع في Vercel (مجاناً)</div>
+                    <p className="text-slate-300 text-[11px] leading-relaxed">
+                      ادخل على <b className="text-white">vercel.com</b> وسجل دخولك بحساب GitHub. اضغط على <b>"Add New... &rarr; Project"</b> واختر المستودع. Vercel يتعرف تلقائياً على Vite، ثم اضغط زر <b>"Deploy"</b> ليتم النشر خلال 30 ثانية!
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-white/10 border border-white/10 space-y-1">
+                    <div className="font-bold text-amber-300">خطوة 3: رابط مخصص + حماية اسم مستخدم وكلمة مرور لكل صيدلية</div>
+                    <p className="text-slate-300 text-[11px] leading-relaxed">
+                      سيعطيك Vercel رابطاً أساسياً مثل: <code>https://pharma-pro.vercel.app</code>
+                      <br />
+                      من داخل هذا البرنامج، أنشئ صيدلية جديدة وحدد لها <b>اسم مستخدم وكلمة سر</b>، وانسخ رابطها المباشر:
+                      <br />
+                      • صيدلية الأمل: <code className="text-cyan-300">https://pharma-pro.vercel.app/?instance=amal</code>
+                      <br />
+                      • صيدلية النور: <code className="text-cyan-300">https://pharma-pro.vercel.app/?instance=noor</code>
+                      <br />
+                      عندما تفتح الصيدلية الرابط، ستطلب منهم المنظومة فوراً إدخال <b>اسم المستخدم وكلمة السر الخاصة بهم</b>، وتكون بياناتهم وفواتيرهم معزولة 100%!
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-white/10 border border-white/10 space-y-1">
+                    <div className="font-bold text-purple-300">خطوة 4: (اختياري) دومين فرعي لكل صيدلية (Subdomains)</div>
+                    <p className="text-slate-300 text-[11px] leading-relaxed">
+                      إذا كنت تملك دومين خاص (مثلاً <code>mypharma.ps</code>)، يمكنك ربط دومين فرعي لكل صيدلية من إعدادات Vercel:
+                      <br />
+                      <code>amal.mypharma.ps</code> و <code>noor.mypharma.ps</code> بكل سهولة.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

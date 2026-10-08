@@ -21,9 +21,12 @@ import {
   Moon,
   Check,
   Building2,
+  FileSpreadsheet,
+  Eye,
+  Zap,
 } from 'lucide-react';
 import { AppSettings, UserRole } from '../types';
-import { ThemeId, AVAILABLE_THEMES } from '../services/themeService';
+import { ThemeId, AVAILABLE_THEMES, ThemeService } from '../services/themeService';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -39,6 +42,7 @@ interface SettingsViewProps {
   onOpenSupabaseSync?: () => void;
   onOpenDeviceSync?: () => void;
   onOpenInstanceManager?: () => void;
+  onNavigateToInventory?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -55,6 +59,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenSupabaseSync,
   onOpenDeviceSync,
   onOpenInstanceManager,
+  onNavigateToInventory,
 }) => {
   const [pharmacyName, setPharmacyName] = useState(settings.pharmacyName);
   const [phone, setPhone] = useState(settings.phone);
@@ -63,6 +68,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [pincode, setPincode] = useState(settings.pincode);
   const [isPinRequired, setIsPinRequired] = useState(settings.isPinRequired);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isContrastBoost, setIsContrastBoost] = useState<boolean>(() => ThemeService.isContrastBoost());
+
+  const handleToggleContrastBoost = () => {
+    const next = !isContrastBoost;
+    setIsContrastBoost(next);
+    ThemeService.setContrastBoost(next);
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,19 +126,54 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* NEW SECTION 1: THEMES AND APPEARANCE */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
-        <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+        <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
               <Palette className="w-5 h-5 text-indigo-600" />
-              <span>مظهر وثيمات البرنامج (Themes & Colors)</span>
+              <span>مظهر وثيمات البرنامج ووضوح الخطوط (Themes & Legibility)</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              اختر المظهر واللون المريح لعينك في الصيدلية، مع دعم الوضع الليلي والنهاري
+              اختر المظهر واللون المريح لعينك مع خيارات التباين العالي لشاشات الصيدليات
             </p>
           </div>
-          <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-            8 ثيمات مدمجة
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-slate-900 text-white">
+              {AVAILABLE_THEMES.length} ثيمات مدمجة
+            </span>
+          </div>
+        </div>
+
+        {/* High Contrast Toggle Banner in Settings */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center justify-center shrink-0">
+              <Eye className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs font-black text-slate-900 flex items-center gap-2">
+                <span>تعزيز سواد وسماكة الخطوط (Font Contrast Boost)</span>
+                <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.2 rounded-full font-bold">
+                  حل فوري لعدم وضوح النصوص
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                يقوم بتحويل كافة النصوص الباهتة والأرقام إلى لون داكن جداً وحاد لتسهيل القراءة السريعة للأسعار والوصفات
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleToggleContrastBoost}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all shrink-0 flex items-center gap-2 shadow-xs ${
+              isContrastBoost
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                : 'bg-white hover:bg-slate-100 text-slate-800 border border-slate-300'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>{isContrastBoost ? '✓ التعزيز مفعّل (الخطوط واضحة جداً)' : 'تفعيل تعزيز الخطوط'}</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -139,12 +186,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onClick={() => onSelectTheme(theme.id)}
                 className={`p-3 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2.5 relative overflow-hidden group hover:scale-[1.02] active:scale-[0.98] ${
                   isSelected
-                    ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-600/20 shadow-md'
+                    ? 'border-slate-900 bg-slate-50 ring-2 ring-slate-900/20 shadow-md'
+                    : theme.isHighContrast
+                    ? 'border-slate-300 bg-white hover:border-slate-900'
                     : 'border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <span className="font-bold text-slate-900 text-xs truncate">
+                  <span className="font-black text-slate-950 text-xs truncate">
                     {theme.name}
                   </span>
                   {theme.isDark ? (
@@ -154,23 +203,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   )}
                 </div>
 
+                {theme.isHighContrast && (
+                  <span className="text-[9px] bg-slate-900 text-white font-black px-1.5 py-0.2 rounded w-fit">
+                    🔍 وضوح فائق
+                  </span>
+                )}
+
                 {/* Swatch dots */}
                 <div className="flex items-center gap-1.5">
                   {theme.previewColors.map((col, idx) => (
                     <span
                       key={idx}
-                      className="w-4 h-4 rounded-full border border-black/10 shadow-xs"
+                      className="w-4 h-4 rounded-full border border-black/15 shadow-xs"
                       style={{ backgroundColor: col }}
                     />
                   ))}
                 </div>
 
                 <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 w-full text-[10px]">
-                  <span className={isSelected ? 'font-black text-indigo-700' : 'text-slate-400'}>
+                  <span className={isSelected ? 'font-black text-slate-950' : 'text-slate-500'}>
                     {isSelected ? '✓ نشط حالياً' : 'تفعيل'}
                   </span>
                   {isSelected && (
-                    <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                    <span className="w-4 h-4 rounded-full bg-slate-950 text-white flex items-center justify-center">
                       <Check className="w-2.5 h-2.5 stroke-[3]" />
                     </span>
                   )}
@@ -476,6 +531,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <RefreshCw className="w-6 h-6 text-rose-600" />
                 <span>إعادة ضبط البيانات الأولية</span>
               </button>
+            </div>
+          </div>
+
+          {/* Excel Batch Import Card */}
+          <div className="bg-gradient-to-r from-emerald-700 via-teal-800 to-cyan-900 rounded-3xl p-6 text-white shadow-lg space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-[11px] font-black uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full inline-block text-emerald-200 mb-1">
+                  إدخال سريع ومجمّع للأصناف والأسعار
+                </span>
+                <h4 className="text-lg font-black text-white flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-emerald-300" />
+                  <span>استيراد وتحديث قائمة الأصناف والأسعار عبر إكسل (Excel / CSV)</span>
+                </h4>
+                <p className="text-xs text-emerald-100 mt-0.5">
+                  إضافة قوائم الأدوية والمستحضرات مع أسعار البيع والشراء والكميات بضغطة زر واحدة من ملف الإكسل
+                </p>
+              </div>
+
+              {onNavigateToInventory && (
+                <button
+                  type="button"
+                  onClick={onNavigateToInventory}
+                  className="px-5 py-2.5 rounded-2xl bg-white hover:bg-emerald-50 text-emerald-950 font-black text-xs shadow-md transition-all shrink-0 flex items-center gap-2"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                  <span>الانتقال لاستيراد الإكسل</span>
+                </button>
+              )}
             </div>
           </div>
 

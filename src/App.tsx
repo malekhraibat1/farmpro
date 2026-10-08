@@ -30,6 +30,7 @@ import { SettingsView } from './views/SettingsView';
 import { SuperAdminView } from './views/SuperAdminView';
 import { SupabaseSyncModal } from './components/SupabaseSyncModal';
 import { PharmacyInstanceManagerModal } from './components/PharmacyInstanceManagerModal';
+import { InstanceLoginModal } from './components/InstanceLoginModal';
 import { InstanceService } from './services/instanceService';
 import { AlertCircle, Key, Sparkles } from 'lucide-react';
 
@@ -59,6 +60,9 @@ export default function App() {
   const [showInstanceManagerModal, setShowInstanceManagerModal] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [selectedEntityForLedger, setSelectedEntityForLedger] = useState<Entity | null>(null);
+  const [isInstanceUnlocked, setIsInstanceUnlocked] = useState<boolean>(() =>
+    InstanceService.isInstanceAuthenticated(InstanceService.getActiveInstanceId())
+  );
 
   // Switch active pharmacy workspace instance
   const handleSwitchInstance = useCallback((newInstanceId: string) => {
@@ -69,6 +73,7 @@ export default function App() {
     setTransactions(AppStorage.getTransactions(newInstanceId));
     setExpenses(AppStorage.getExpenses(newInstanceId));
     setSettings(AppStorage.getSettings(newInstanceId));
+    setIsInstanceUnlocked(InstanceService.isInstanceAuthenticated(newInstanceId));
   }, []);
 
   // Initialize theme on mount
@@ -290,6 +295,14 @@ export default function App() {
     setMedicines(prev => prev.filter(m => m.id !== id));
   };
 
+  const handleBulkImportMedicines = (newMeds: Medicine[], updatedMeds: Medicine[]) => {
+    setMedicines(prev => {
+      const updatedMap = new Map(updatedMeds.map(m => [m.id, m]));
+      const updatedList = prev.map(m => updatedMap.get(m.id) || m);
+      return [...newMeds, ...updatedList];
+    });
+  };
+
   // Expenses handlers
   const handleAddExpense = (newExp: Omit<Expense, 'id'>) => {
     const exp: Expense = {
@@ -453,12 +466,26 @@ export default function App() {
         currentRole={currentRole}
       />
 
+      {/* Instance Login Modal for protected pharmacy copies */}
+      {!isInstanceUnlocked && (
+        <InstanceLoginModal
+          isOpen={!isInstanceUnlocked}
+          activeInstance={InstanceService.getActiveInstance()}
+          onSuccessLogin={() => setIsInstanceUnlocked(true)}
+          onOpenPharmacySwitcher={() => setShowInstanceManagerModal(true)}
+        />
+      )}
+
       {/* Top Application Header */}
       <Header
         settings={settings}
         currentRole={currentRole}
         currentThemeId={currentThemeId}
-        onLock={() => setIsLocked(true)}
+        onLock={() => {
+          InstanceService.logoutInstance(InstanceService.getActiveInstanceId());
+          setIsInstanceUnlocked(false);
+          setIsLocked(true);
+        }}
         onOpenAbout={() => setShowAboutModal(true)}
         onOpenThemeSelector={() => setShowThemeModal(true)}
         onOpenDeviceSync={() => setShowDeviceSyncModal(true)}
@@ -561,6 +588,7 @@ export default function App() {
               onAddMedicine={handleAddMedicine}
               onUpdateMedicine={handleUpdateMedicine}
               onDeleteMedicine={handleDeleteMedicine}
+              onBulkImportMedicines={handleBulkImportMedicines}
             />
           )}
 
@@ -600,6 +628,7 @@ export default function App() {
               onOpenSupabaseSync={() => setShowSupabaseModal(true)}
               onOpenDeviceSync={() => setShowDeviceSyncModal(true)}
               onOpenInstanceManager={() => setShowInstanceManagerModal(true)}
+              onNavigateToInventory={() => setCurrentTab('inventory')}
             />
           )}
 

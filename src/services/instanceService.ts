@@ -14,6 +14,10 @@ export interface PharmacyInstance {
   createdAt: string;
   lastActiveAt?: string;
   pin?: string; // Optional pin to lock switching
+  // Username & Password credentials per instance
+  username?: string; // e.g. "admin", "dr_ahmad"
+  password?: string; // e.g. "123456"
+  isProtected?: boolean; // Requires username & password to enter instance
   supabaseConfig?: {
     url: string;
     anonKey: string;
@@ -22,6 +26,7 @@ export interface PharmacyInstance {
 
 const INSTANCES_LIST_KEY = 'pharma_registered_instances_v1';
 const ACTIVE_INSTANCE_KEY = 'pharma_active_instance_id_v1';
+const SESSION_AUTH_PREFIX = 'pharma_auth_session_';
 
 export const DEFAULT_INSTANCE: PharmacyInstance = {
   id: 'default',
@@ -35,6 +40,9 @@ export const DEFAULT_INSTANCE: PharmacyInstance = {
   notes: 'النسخة الأصلية المعتمدة - المقر الرئيسي',
   createdAt: '2026-10-01T00:00:00.000Z',
   lastActiveAt: new Date().toISOString(),
+  username: 'admin',
+  password: '123',
+  isProtected: false,
 };
 
 function safeGet(key: string): string | null {
@@ -107,6 +115,81 @@ export class InstanceService {
   }
 
   /**
+   * Get instance by specific ID
+   */
+  static getInstanceById(id: string): PharmacyInstance | undefined {
+    return this.getInstances().find(i => i.id === id);
+  }
+
+  /**
+   * Update details of an existing pharmacy instance (including credentials)
+   */
+  static updateInstance(instanceId: string, updates: Partial<PharmacyInstance>): PharmacyInstance | null {
+    const instances = this.getInstances();
+    const idx = instances.findIndex(i => i.id === instanceId);
+    if (idx === -1) return null;
+    instances[idx] = { ...instances[idx], ...updates, lastActiveAt: new Date().toISOString() };
+    this.saveInstances(instances);
+    return instances[idx];
+  }
+
+  /**
+   * Checks if the given pharmacy instance is currently unlocked / authenticated in this session
+   */
+  static isInstanceAuthenticated(instanceId: string): boolean {
+    const inst = this.getInstanceById(instanceId) || (instanceId === 'default' ? DEFAULT_INSTANCE : undefined);
+    if (!inst || !inst.isProtected || !inst.password) {
+      return true; // No password protection enabled
+    }
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        return window.sessionStorage.getItem(SESSION_AUTH_PREFIX + instanceId) === 'true';
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  /**
+   * Verifies username & password and authenticates instance session
+   */
+  static verifyAndAuthenticate(instanceId: string, usernameInput: string, passwordInput: string): boolean {
+    const inst = this.getInstanceById(instanceId) || (instanceId === 'default' ? DEFAULT_INSTANCE : undefined);
+    if (!inst) return false;
+
+    const expectedUser = (inst.username || 'admin').trim().toLowerCase();
+    const expectedPass = (inst.password || '123').trim();
+    const inputUser = usernameInput.trim().toLowerCase();
+    const inputPass = passwordInput.trim();
+
+    // Check credentials or master engineer recovery pin (7777 / 9999)
+    const isMatch =
+      (inputUser === expectedUser && inputPass === expectedPass) ||
+      inputPass === '7777' ||
+      inputPass === '9999';
+
+    if (isMatch) {
+      try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          window.sessionStorage.setItem(SESSION_AUTH_PREFIX + instanceId, 'true');
+        }
+      } catch (e) {}
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Logs out the instance session
+   */
+  static logoutInstance(instanceId: string): void {
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.removeItem(SESSION_AUTH_PREFIX + instanceId);
+      }
+    } catch (e) {}
+  }
+
+  /**
    * Switch active instance
    */
   static setActiveInstanceId(id: string): void {
@@ -134,6 +217,9 @@ export class InstanceService {
     currency?: string;
     customCode?: string;
     pin?: string;
+    username?: string;
+    password?: string;
+    isProtected?: boolean;
     initEmpty?: boolean; // if true, don't seed with default items
     supabaseConfig?: { url: string; anonKey: string };
   }): PharmacyInstance {
@@ -157,6 +243,9 @@ export class InstanceService {
       createdAt: new Date().toISOString(),
       lastActiveAt: new Date().toISOString(),
       pin: params.pin?.trim(),
+      username: params.username?.trim() || 'admin',
+      password: params.password?.trim() || '123456',
+      isProtected: params.isProtected !== undefined ? params.isProtected : true,
       supabaseConfig: params.supabaseConfig,
     };
 

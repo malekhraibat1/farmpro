@@ -1,6 +1,9 @@
 export type ThemeId = 
+  | 'ultra_contrast'
+  | 'crisp_classic'
   | 'emerald' 
   | 'ocean' 
+  | 'soft_paper'
   | 'violet' 
   | 'ruby' 
   | 'dark' 
@@ -14,6 +17,7 @@ export interface ThemeDefinition {
   nameEn: string;
   description: string;
   isDark: boolean;
+  isHighContrast?: boolean;
   primaryColor: string;
   secondaryColor: string;
   accentGradient: string;
@@ -27,10 +31,60 @@ export interface ThemeDefinition {
 
 export const AVAILABLE_THEMES: ThemeDefinition[] = [
   {
+    id: 'ultra_contrast',
+    name: 'التباين العالي فائق الوضوح (Ultra Clear)',
+    nameEn: 'Ultra High Contrast',
+    description: 'كتابات سوداء داكنة جداً وحادة، بدون أي ألوان باهتة مع وضوح فائق للأرقام والأسعار وقراءة مريحة بدون إجهاد',
+    isDark: false,
+    isHighContrast: true,
+    primaryColor: '#09090b',
+    secondaryColor: '#1d4ed8',
+    accentGradient: 'from-slate-950 via-slate-900 to-blue-950',
+    primaryBtnClass: 'bg-black hover:bg-slate-900 text-white font-black shadow-md border-2 border-black',
+    headerBgClass: 'bg-white border-b-2 border-slate-900',
+    cardBorderClass: 'border-2 border-slate-400',
+    activeTabClass: 'bg-black text-white font-black shadow-md border-2 border-black',
+    badgeClass: 'bg-slate-100 text-black border-2 border-slate-900 font-black',
+    previewColors: ['#000000', '#ffffff', '#1d4ed8'],
+  },
+  {
+    id: 'crisp_classic',
+    name: 'الأزرق المكتبي شديد الوضوح (Crisp Navy)',
+    nameEn: 'Crisp Classic Navy',
+    description: 'خطوط كحلية داكنة متناسقة 100% مع أزرار بارزة وتدرجات حادة مخصصة لشاشات الصيدليات والمحاسبة',
+    isDark: false,
+    isHighContrast: true,
+    primaryColor: '#1e3a8a',
+    secondaryColor: '#0369a1',
+    accentGradient: 'from-blue-950 via-slate-900 to-indigo-950',
+    primaryBtnClass: 'bg-blue-900 hover:bg-blue-950 text-white font-black shadow-blue-900/30 border border-blue-950',
+    headerBgClass: 'bg-white border-b-2 border-blue-900/40',
+    cardBorderClass: 'border border-blue-300',
+    activeTabClass: 'bg-blue-900 text-white font-black shadow-md',
+    badgeClass: 'bg-blue-100 text-blue-950 border border-blue-400 font-bold',
+    previewColors: ['#1e3a8a', '#0369a1', '#ffffff'],
+  },
+  {
+    id: 'soft_paper',
+    name: 'الورق الطبي الهادئ (Warm Paper Ink)',
+    nameEn: 'Warm Paper Ink',
+    description: 'حبر أسود داكن على خلفية دافئة مريحة جداً لنظر الصيدلي في المناوبات الطويلة مع تناسق كامل للخطوط',
+    isDark: false,
+    primaryColor: '#292524',
+    secondaryColor: '#047857',
+    accentGradient: 'from-stone-900 via-stone-800 to-emerald-950',
+    primaryBtnClass: 'bg-stone-900 hover:bg-black text-white font-black shadow-stone-900/20',
+    headerBgClass: 'bg-stone-50 border-b border-stone-300',
+    cardBorderClass: 'border border-stone-300',
+    activeTabClass: 'bg-stone-900 text-white font-black shadow-stone-900/25',
+    badgeClass: 'bg-stone-200 text-stone-900 border border-stone-400 font-bold',
+    previewColors: ['#292524', '#f5f5f4', '#047857'],
+  },
+  {
     id: 'emerald',
     name: 'النعناع والزمرد الطبي',
     nameEn: 'Medical Emerald',
-    description: 'الثيم الطبي الافتراضي المريح للعين بلمسات الزمرد والنعناع المنعش',
+    description: 'الثيم الطبي الهادئ بلمسات الزمرد والنعناع المنعش',
     isDark: false,
     primaryColor: '#0d9488',
     secondaryColor: '#06b6d4',
@@ -157,6 +211,7 @@ export const AVAILABLE_THEMES: ThemeDefinition[] = [
 ];
 
 const THEME_STORAGE_KEY = 'pharma_pro_theme_id_v1';
+const CONTRAST_BOOST_KEY = 'pharma_pro_contrast_boost_v1';
 
 export class ThemeService {
   static getStoredTheme(): ThemeId {
@@ -170,7 +225,29 @@ export class ThemeService {
     } catch (e) {
       console.warn('Could not read theme from localStorage:', e);
     }
-    return 'emerald';
+    return 'ultra_contrast'; // Default to ultra_contrast for maximum clarity!
+  }
+
+  static isContrastBoost(): boolean {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(CONTRAST_BOOST_KEY) === 'true';
+      }
+    } catch (e) {}
+    return true; // Default to true for best legibility in Arabic
+  }
+
+  static setContrastBoost(enabled: boolean): void {
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(CONTRAST_BOOST_KEY, String(enabled));
+        if (enabled) {
+          document.documentElement.classList.add('contrast-boost');
+        } else {
+          document.documentElement.classList.remove('contrast-boost');
+        }
+      }
+    } catch (e) {}
   }
 
   static applyTheme(themeId: ThemeId): ThemeDefinition {
@@ -188,6 +265,14 @@ export class ThemeService {
           root.classList.add('dark');
         } else {
           root.classList.remove('dark');
+        }
+
+        // Apply contrast boost class
+        const boostActive = theme.isHighContrast || ThemeService.isContrastBoost();
+        if (boostActive) {
+          root.classList.add('contrast-boost');
+        } else {
+          root.classList.remove('contrast-boost');
         }
 
         // Set CSS variables for dynamic styling

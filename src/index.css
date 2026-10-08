@@ -28,9 +28,134 @@ body {
   padding: 0;
   min-height: 100vh;
   background-color: #f8fafc;
-  color: #1e293b;
+  color: #0f172a;
+  font-weight: 500;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ========================================================
+   HIGH CONTRAST & CRYSTAL CLEAR TYPOGRAPHY SYSTEM
+   ======================================================== */
+
+/* Global Contrast Boost - Improves legibility across all themes */
+.contrast-boost,
+[data-theme="ultra_contrast"],
+[data-theme="crisp_classic"] {
+  --text-dark: #000000;
+  --text-body: #09090b;
+  --text-secondary: #27272a;
+  --text-muted: #3f3f46;
+  --border-strong: #71717a;
+}
+
+.contrast-boost body,
+[data-theme="ultra_contrast"] body {
+  background-color: #f4f4f5 !important;
+  color: #000000 !important;
+  font-weight: 600;
+}
+
+/* Make washed-out light gray text readable, crisp, and high-contrast */
+.contrast-boost .text-slate-400,
+.contrast-boost .text-slate-500,
+.contrast-boost .text-gray-400,
+.contrast-boost .text-gray-500,
+[data-theme="ultra_contrast"] .text-slate-400,
+[data-theme="ultra_contrast"] .text-slate-500,
+[data-theme="ultra_contrast"] .text-gray-400,
+[data-theme="ultra_contrast"] .text-gray-500 {
+  color: #27272a !important;
+  font-weight: 600 !important;
+}
+
+.contrast-boost .text-slate-600,
+.contrast-boost .text-slate-700,
+.contrast-boost .text-slate-800,
+.contrast-boost .text-slate-900,
+[data-theme="ultra_contrast"] .text-slate-600,
+[data-theme="ultra_contrast"] .text-slate-700,
+[data-theme="ultra_contrast"] .text-slate-800,
+[data-theme="ultra_contrast"] .text-slate-900 {
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+/* Strengthen input fields for high visibility */
+.contrast-boost input,
+.contrast-boost select,
+.contrast-boost textarea,
+[data-theme="ultra_contrast"] input,
+[data-theme="ultra_contrast"] select,
+[data-theme="ultra_contrast"] textarea {
+  color: #000000 !important;
+  border-color: #52525b !important;
+  background-color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.contrast-boost input::placeholder,
+.contrast-boost textarea::placeholder,
+[data-theme="ultra_contrast"] input::placeholder,
+[data-theme="ultra_contrast"] textarea::placeholder {
+  color: #52525b !important;
+  font-weight: 500;
+}
+
+/* Make tables sharp and high-contrast */
+.contrast-boost table th,
+[data-theme="ultra_contrast"] table th {
+  color: #000000 !important;
+  background-color: #e4e4e7 !important;
+  font-weight: 900 !important;
+  border-bottom: 2px solid #27272a !important;
+}
+
+.contrast-boost table td,
+[data-theme="ultra_contrast"] table td {
+  color: #09090b !important;
+  border-bottom: 1px solid #d4d4d8 !important;
+  font-weight: 600;
+}
+
+/* High contrast badges */
+.contrast-boost .badge,
+[data-theme="ultra_contrast"] .badge {
+  font-weight: 800 !important;
+  border-width: 1.5px !important;
+}
+
+/* Crisp Classic Navy Theme */
+[data-theme="crisp_classic"] body {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  font-weight: 600;
+}
+
+[data-theme="crisp_classic"] .text-slate-400,
+[data-theme="crisp_classic"] .text-slate-500 {
+  color: #334155 !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="crisp_classic"] .text-slate-800,
+[data-theme="crisp_classic"] .text-slate-900 {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+/* Soft Paper Ink Theme */
+[data-theme="soft_paper"] body {
+  background-color: #f7f6f3 !important;
+  color: #1c1917 !important;
+  font-weight: 600;
+}
+
+[data-theme="soft_paper"] .text-slate-400,
+[data-theme="soft_paper"] .text-slate-500 {
+  color: #44403c !important;
+  font-weight: 600 !important;
 }
 
 /* Custom scrollbars */

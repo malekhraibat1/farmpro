@@ -311,11 +311,19 @@ function safeSetStorage(key: string, value: string): void {
   }
 }
 
+function getSupabaseKey(instanceId?: string): string {
+  const active = instanceId || safeGetStorage('pharma_active_instance_id_v1') || 'default';
+  if (active === 'default') return SUPABASE_CONFIG_KEY;
+  return `${SUPABASE_CONFIG_KEY}_inst_${active}`;
+}
+
 export class SupabaseService {
   private static client: SupabaseClient | null = null;
+  private static clientInstanceId: string | null = null;
 
-  static getConfig(): SupabaseConfig {
-    const raw = safeGetStorage(SUPABASE_CONFIG_KEY);
+  static getConfig(instanceId?: string): SupabaseConfig {
+    const key = getSupabaseKey(instanceId);
+    const raw = safeGetStorage(key);
     if (!raw) {
       return { url: '', anonKey: '', isConnected: false };
     }
@@ -326,20 +334,23 @@ export class SupabaseService {
     }
   }
 
-  static saveConfig(config: SupabaseConfig): void {
+  static saveConfig(config: SupabaseConfig, instanceId?: string): void {
+    const key = getSupabaseKey(instanceId);
     const { cleanedUrl } = cleanAndValidateSupabaseUrl(config.url);
     const sanitized = {
       ...config,
       url: cleanedUrl || config.url.trim(),
       anonKey: config.anonKey.trim(),
     };
-    safeSetStorage(SUPABASE_CONFIG_KEY, JSON.stringify(sanitized));
+    safeSetStorage(key, JSON.stringify(sanitized));
     this.client = null; // reset client to re-init
+    this.clientInstanceId = null;
   }
 
   static getClient(): SupabaseClient | null {
-    if (this.client) return this.client;
-    const cfg = this.getConfig();
+    const active = safeGetStorage('pharma_active_instance_id_v1') || 'default';
+    if (this.client && this.clientInstanceId === active) return this.client;
+    const cfg = this.getConfig(active);
     if (cfg.url && cfg.anonKey) {
       try {
         const { cleanedUrl } = cleanAndValidateSupabaseUrl(cfg.url);

@@ -20,6 +20,7 @@ import {
   Sun,
   Moon,
   Check,
+  Building2,
 } from 'lucide-react';
 import { AppSettings, UserRole } from '../types';
 import { ThemeId, AVAILABLE_THEMES } from '../services/themeService';
@@ -37,6 +38,7 @@ interface SettingsViewProps {
   onNavigateToSuperAdmin?: () => void;
   onOpenSupabaseSync?: () => void;
   onOpenDeviceSync?: () => void;
+  onOpenInstanceManager?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -52,6 +54,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onNavigateToSuperAdmin,
   onOpenSupabaseSync,
   onOpenDeviceSync,
+  onOpenInstanceManager,
 }) => {
   const [pharmacyName, setPharmacyName] = useState(settings.pharmacyName);
   const [phone, setPhone] = useState(settings.phone);
@@ -175,6 +178,71 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* SECTION: MULTI-PHARMACY WORKSPACES & DATA ISOLATION */}
+      <div className="bg-gradient-to-r from-teal-950 via-slate-900 to-teal-950 rounded-3xl p-6 text-white shadow-xl space-y-4 border border-teal-800/40">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-teal-800/60 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider bg-teal-500/20 text-teal-300 px-2.5 py-0.5 rounded-full border border-teal-500/30">
+                عزل تام للبيانات 100%
+              </span>
+              <span className="text-xs font-bold text-teal-400 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-teal-400"></span>
+                <span>نظام المقرات والنسخ المعزولة</span>
+              </span>
+            </div>
+            <h3 className="text-lg font-black text-white flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-teal-400" />
+              <span>تخصيص نسخة خاصة لكل صيدلية مع بياناتها المعزولة</span>
+            </h3>
+            <p className="text-xs text-slate-300">
+              تتيح لك تشغيل نسخ متعددة للصيدليات المختلفة دون أي تداخل في الأدوية أو الفواتير أو الحسابات
+            </p>
+          </div>
+
+          {onOpenInstanceManager && (
+            <button
+              type="button"
+              onClick={onOpenInstanceManager}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-teal-400 to-emerald-500 hover:from-teal-300 hover:to-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-teal-500/25 active:scale-95 transition-all shrink-0 flex items-center gap-2"
+            >
+              <Building2 className="w-4 h-4" />
+              <span>إدارة وتخصيص نسخ الصيدليات 🏢</span>
+            </button>
+          )}
+        </div>
+
+        {/* 3 Isolation Solutions Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/10 space-y-1.5">
+            <div className="font-bold text-teal-300 flex items-center gap-1.5">
+              <span>1️⃣ روابط مخصصة (Instance URL)</span>
+            </div>
+            <p className="text-slate-300 text-[11px] leading-relaxed">
+              توليد رابط مباشر لكل صيدلية (كود فريد)، بحيث تفتح الصيدلية صفحتها ببياناتها الخاصة فقط على أي جهاز.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/10 space-y-1.5">
+            <div className="font-bold text-cyan-300 flex items-center gap-1.5">
+              <span>2️⃣ عزل سحابي كامل (Supabase)</span>
+            </div>
+            <p className="text-slate-300 text-[11px] leading-relaxed">
+              ربط كل صيدلية بمشروع سحابي خاص بها مجاناً لعزل فيزيائي وتزامن أجهزة تلك الصيدلية فقط.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/10 space-y-1.5">
+            <div className="font-bold text-amber-300 flex items-center gap-1.5">
+              <span>3️⃣ حزم تصدير مستقلة (JSON)</span>
+            </div>
+            <p className="text-slate-300 text-[11px] leading-relaxed">
+              تصدير ملف النسخة الاحتياطية المهيأ للصيدلية واستيراده بنقرة واحدة على أجهزتهم بكل أمان.
+            </p>
+          </div>
         </div>
       </div>
 

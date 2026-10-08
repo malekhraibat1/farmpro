@@ -534,101 +534,148 @@ function safeSetItem(key: string, value: string): void {
   }
 }
 
+function getInstanceKey(baseKey: string, specificInstanceId?: string): string {
+  const instanceId = specificInstanceId || safeGetItem('pharma_active_instance_id_v1') || 'default';
+  if (instanceId === 'default') {
+    return baseKey;
+  }
+  return `${baseKey}_inst_${instanceId}`;
+}
+
 export class AppStorage {
-  static getEntities(): Entity[] {
-    const data = safeGetItem(STORAGE_KEYS.ENTITIES);
+  static getActiveInstanceId(): string {
+    return safeGetItem('pharma_active_instance_id_v1') || 'default';
+  }
+
+  static setActiveInstanceId(id: string): void {
+    safeSetItem('pharma_active_instance_id_v1', id);
+  }
+
+  static getEntities(instanceId?: string): Entity[] {
+    const key = getInstanceKey(STORAGE_KEYS.ENTITIES, instanceId);
+    const data = safeGetItem(key);
+    const active = instanceId || this.getActiveInstanceId();
     if (!data) {
-      this.saveEntities(initialEntities);
-      return initialEntities;
+      if (active === 'default') {
+        this.saveEntities(initialEntities, 'default');
+        return initialEntities;
+      }
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : initialEntities;
+      return Array.isArray(parsed) ? parsed : (active === 'default' ? initialEntities : []);
     } catch {
-      return initialEntities;
+      return active === 'default' ? initialEntities : [];
     }
   }
 
-  static saveEntities(entities: Entity[]): void {
-    safeSetItem(STORAGE_KEYS.ENTITIES, JSON.stringify(entities));
+  static saveEntities(entities: Entity[], instanceId?: string): void {
+    const key = getInstanceKey(STORAGE_KEYS.ENTITIES, instanceId);
+    safeSetItem(key, JSON.stringify(entities));
   }
 
-  static getMedicines(): Medicine[] {
-    const data = safeGetItem(STORAGE_KEYS.MEDICINES);
+  static getMedicines(instanceId?: string): Medicine[] {
+    const key = getInstanceKey(STORAGE_KEYS.MEDICINES, instanceId);
+    const data = safeGetItem(key);
+    const active = instanceId || this.getActiveInstanceId();
     if (!data) {
-      this.saveMedicines(initialMedicines);
-      return initialMedicines;
+      if (active === 'default') {
+        this.saveMedicines(initialMedicines, 'default');
+        return initialMedicines;
+      }
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : initialMedicines;
+      return Array.isArray(parsed) ? parsed : (active === 'default' ? initialMedicines : []);
     } catch {
-      return initialMedicines;
+      return active === 'default' ? initialMedicines : [];
     }
   }
 
-  static saveMedicines(medicines: Medicine[]): void {
-    safeSetItem(STORAGE_KEYS.MEDICINES, JSON.stringify(medicines));
+  static saveMedicines(medicines: Medicine[], instanceId?: string): void {
+    const key = getInstanceKey(STORAGE_KEYS.MEDICINES, instanceId);
+    safeSetItem(key, JSON.stringify(medicines));
   }
 
-  static getSales(): SaleInvoice[] {
-    const data = safeGetItem(STORAGE_KEYS.SALES);
+  static getSales(instanceId?: string): SaleInvoice[] {
+    const key = getInstanceKey(STORAGE_KEYS.SALES, instanceId);
+    const data = safeGetItem(key);
+    const active = instanceId || this.getActiveInstanceId();
     if (!data) {
-      this.saveSales(initialSales);
-      return initialSales;
+      if (active === 'default') {
+        this.saveSales(initialSales, 'default');
+        return initialSales;
+      }
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : initialSales;
+      return Array.isArray(parsed) ? parsed : (active === 'default' ? initialSales : []);
     } catch {
-      return initialSales;
+      return active === 'default' ? initialSales : [];
     }
   }
 
-  static saveSales(sales: SaleInvoice[]): void {
-    safeSetItem(STORAGE_KEYS.SALES, JSON.stringify(sales));
+  static saveSales(sales: SaleInvoice[], instanceId?: string): void {
+    const key = getInstanceKey(STORAGE_KEYS.SALES, instanceId);
+    safeSetItem(key, JSON.stringify(sales));
   }
 
-  static getTransactions(): FinancialTransaction[] {
-    const data = safeGetItem(STORAGE_KEYS.TRANSACTIONS);
+  static getTransactions(instanceId?: string): FinancialTransaction[] {
+    const key = getInstanceKey(STORAGE_KEYS.TRANSACTIONS, instanceId);
+    const data = safeGetItem(key);
+    const active = instanceId || this.getActiveInstanceId();
     if (!data) {
-      this.saveTransactions(initialTransactions);
-      return initialTransactions;
+      if (active === 'default') {
+        this.saveTransactions(initialTransactions, 'default');
+        return initialTransactions;
+      }
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : initialTransactions;
+      return Array.isArray(parsed) ? parsed : (active === 'default' ? initialTransactions : []);
     } catch {
-      return initialTransactions;
+      return active === 'default' ? initialTransactions : [];
     }
   }
 
-  static saveTransactions(transactions: FinancialTransaction[]): void {
-    safeSetItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+  static saveTransactions(transactions: FinancialTransaction[], instanceId?: string): void {
+    const key = getInstanceKey(STORAGE_KEYS.TRANSACTIONS, instanceId);
+    safeSetItem(key, JSON.stringify(transactions));
   }
 
-  static getExpenses(): Expense[] {
-    const data = safeGetItem(STORAGE_KEYS.EXPENSES);
+  static getExpenses(instanceId?: string): Expense[] {
+    const key = getInstanceKey(STORAGE_KEYS.EXPENSES, instanceId);
+    const data = safeGetItem(key);
+    const active = instanceId || this.getActiveInstanceId();
     if (!data) {
-      this.saveExpenses(initialExpenses);
-      return initialExpenses;
+      if (active === 'default') {
+        this.saveExpenses(initialExpenses, 'default');
+        return initialExpenses;
+      }
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : initialExpenses;
+      return Array.isArray(parsed) ? parsed : (active === 'default' ? initialExpenses : []);
     } catch {
-      return initialExpenses;
+      return active === 'default' ? initialExpenses : [];
     }
   }
 
-  static saveExpenses(expenses: Expense[]): void {
-    safeSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+  static saveExpenses(expenses: Expense[], instanceId?: string): void {
+    const key = getInstanceKey(STORAGE_KEYS.EXPENSES, instanceId);
+    safeSetItem(key, JSON.stringify(expenses));
   }
 
-  static getSettings(): AppSettings {
-    const data = safeGetItem(STORAGE_KEYS.SETTINGS);
+  static getSettings(instanceId?: string): AppSettings {
+    const key = getInstanceKey(STORAGE_KEYS.SETTINGS, instanceId);
+    const data = safeGetItem(key);
     if (!data) {
-      this.saveSettings(defaultSettings);
+      this.saveSettings(defaultSettings, instanceId);
       return defaultSettings;
     }
     try {
@@ -646,34 +693,73 @@ export class AppStorage {
     }
   }
 
-  static saveSettings(settings: AppSettings): void {
-    safeSetItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+  static saveSettings(settings: AppSettings, instanceId?: string): void {
+    const key = getInstanceKey(STORAGE_KEYS.SETTINGS, instanceId);
+    safeSetItem(key, JSON.stringify(settings));
+  }
+
+  static initInstanceData(
+    instanceId: string,
+    customSettings: AppSettings,
+    seedMedicines: boolean = false
+  ): void {
+    this.saveSettings(customSettings, instanceId);
+    this.saveEntities([], instanceId);
+    this.saveSales([], instanceId);
+    this.saveTransactions([], instanceId);
+    this.saveExpenses([], instanceId);
+    if (seedMedicines) {
+      this.saveMedicines(initialMedicines, instanceId);
+    } else {
+      this.saveMedicines([], instanceId);
+    }
+  }
+
+  static getInstanceStats(instanceId: string): {
+    medicinesCount: number;
+    salesCount: number;
+    entitiesCount: number;
+    transactionsCount: number;
+  } {
+    const med = this.getMedicines(instanceId);
+    const sal = this.getSales(instanceId);
+    const ent = this.getEntities(instanceId);
+    const trx = this.getTransactions(instanceId);
+    return {
+      medicinesCount: med.length,
+      salesCount: sal.length,
+      entitiesCount: ent.length,
+      transactionsCount: trx.length,
+    };
   }
 
   // Backup & Restore
-  static exportFullBackup(): string {
+  static exportFullBackup(instanceId?: string): string {
+    const active = instanceId || this.getActiveInstanceId();
     const backup = {
-      entities: this.getEntities(),
-      medicines: this.getMedicines(),
-      sales: this.getSales(),
-      transactions: this.getTransactions(),
-      expenses: this.getExpenses(),
-      settings: this.getSettings(),
+      instanceId: active,
+      entities: this.getEntities(active),
+      medicines: this.getMedicines(active),
+      sales: this.getSales(active),
+      transactions: this.getTransactions(active),
+      expenses: this.getExpenses(active),
+      settings: this.getSettings(active),
       exportedAt: new Date().toISOString(),
-      version: '1.0',
+      version: '2.0',
     };
     return JSON.stringify(backup, null, 2);
   }
 
-  static importFullBackup(jsonString: string): boolean {
+  static importFullBackup(jsonString: string, targetInstanceId?: string): boolean {
     try {
       const data = JSON.parse(jsonString);
-      if (data.entities) this.saveEntities(data.entities);
-      if (data.medicines) this.saveMedicines(data.medicines);
-      if (data.sales) this.saveSales(data.sales);
-      if (data.transactions) this.saveTransactions(data.transactions);
-      if (data.expenses) this.saveExpenses(data.expenses);
-      if (data.settings) this.saveSettings(data.settings);
+      const target = targetInstanceId || this.getActiveInstanceId();
+      if (data.entities) this.saveEntities(data.entities, target);
+      if (data.medicines) this.saveMedicines(data.medicines, target);
+      if (data.sales) this.saveSales(data.sales, target);
+      if (data.transactions) this.saveTransactions(data.transactions, target);
+      if (data.expenses) this.saveExpenses(data.expenses, target);
+      if (data.settings) this.saveSettings(data.settings, target);
       return true;
     } catch (e) {
       console.error('Backup restore error:', e);
@@ -681,12 +767,21 @@ export class AppStorage {
     }
   }
 
-  static resetToDefault(): void {
-    this.saveEntities(initialEntities);
-    this.saveMedicines(initialMedicines);
-    this.saveSales(initialSales);
-    this.saveTransactions(initialTransactions);
-    this.saveExpenses(initialExpenses);
-    this.saveSettings(defaultSettings);
+  static resetToDefault(instanceId?: string): void {
+    const target = instanceId || this.getActiveInstanceId();
+    if (target === 'default') {
+      this.saveEntities(initialEntities, 'default');
+      this.saveMedicines(initialMedicines, 'default');
+      this.saveSales(initialSales, 'default');
+      this.saveTransactions(initialTransactions, 'default');
+      this.saveExpenses(initialExpenses, 'default');
+      this.saveSettings(defaultSettings, 'default');
+    } else {
+      this.saveEntities([], target);
+      this.saveMedicines([], target);
+      this.saveSales([], target);
+      this.saveTransactions([], target);
+      this.saveExpenses([], target);
+    }
   }
 }

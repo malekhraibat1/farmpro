@@ -14,6 +14,7 @@ import {
   ArrowRightLeft,
   Laptop,
   Smartphone,
+  Building2,
 } from 'lucide-react';
 import { UserRole, AppSettings } from '../types';
 import { ThemeId, AVAILABLE_THEMES } from '../services/themeService';
@@ -26,6 +27,7 @@ interface HeaderProps {
   onOpenAbout: () => void;
   onOpenThemeSelector: () => void;
   onOpenDeviceSync: () => void;
+  onOpenInstanceManager?: () => void;
   onToggleMobileMenu?: () => void;
   onNewSaleShortcut: () => void;
   onOpenSuperAdmin?: () => void;
@@ -40,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAbout,
   onOpenThemeSelector,
   onOpenDeviceSync,
+  onOpenInstanceManager,
   onToggleMobileMenu,
   onNewSaleShortcut,
   onOpenSuperAdmin,
@@ -115,6 +118,17 @@ export const Header: React.FC<HeaderProps> = ({
                   <ArrowRightLeft className="w-3 h-3 text-indigo-500 animate-pulse" />
                   <span>ربط الأجهزة</span>
                 </button>
+                {onOpenInstanceManager && (
+                  <button
+                    type="button"
+                    onClick={onOpenInstanceManager}
+                    className="inline-flex items-center gap-1 text-teal-700 dark:text-teal-300 font-bold hover:bg-teal-50 dark:hover:bg-teal-950/60 px-1.5 sm:px-2 py-0.5 rounded-lg transition-colors border border-teal-200 dark:border-teal-800/60 text-[10px] sm:text-xs"
+                    title="تخصيص وعزل النسخ لكل صيدلية"
+                  >
+                    <Building2 className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                    <span>تخصيص الصيدليات</span>
+                  </button>
+                )}
                 <span className="hidden sm:inline text-slate-300 dark:text-slate-600">•</span>
                 <span className="hidden sm:inline">{dateStr}</span>
               </div>
@@ -128,9 +142,21 @@ export const Header: React.FC<HeaderProps> = ({
           <span>{timeStr}</span>
         </div>
 
-        {/* Right/End side: Theme picker + Device sync + Quick sale + Designer + Role + Lock */}
+        {/* Right/End side: Pharmacy Isolation + Theme picker + Device sync + Quick sale + Designer + Role + Lock */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           
+          {/* Pharmacy Instances Button */}
+          {onOpenInstanceManager && (
+            <button
+              onClick={onOpenInstanceManager}
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 border border-teal-200/80 dark:border-teal-800 text-teal-700 dark:text-teal-300 text-xs font-bold transition-all shadow-xs"
+              title="تخصيص النسخ وعزل بيانات الصيدليات"
+            >
+              <Building2 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              <span className="hidden sm:inline text-[11px]">نسخ الصيدليات</span>
+            </button>
+          )}
+
           {/* Theme Switcher Button */}
           <button
             onClick={onOpenThemeSelector}

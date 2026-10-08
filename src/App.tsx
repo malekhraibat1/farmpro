@@ -29,6 +29,8 @@ import { ReportsView } from './views/ReportsView';
 import { SettingsView } from './views/SettingsView';
 import { SuperAdminView } from './views/SuperAdminView';
 import { SupabaseSyncModal } from './components/SupabaseSyncModal';
+import { PharmacyInstanceManagerModal } from './components/PharmacyInstanceManagerModal';
+import { InstanceService } from './services/instanceService';
 import { AlertCircle, Key, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -54,8 +56,20 @@ export default function App() {
   const [showSupabaseModal, setShowSupabaseModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showDeviceSyncModal, setShowDeviceSyncModal] = useState(false);
+  const [showInstanceManagerModal, setShowInstanceManagerModal] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [selectedEntityForLedger, setSelectedEntityForLedger] = useState<Entity | null>(null);
+
+  // Switch active pharmacy workspace instance
+  const handleSwitchInstance = useCallback((newInstanceId: string) => {
+    InstanceService.setActiveInstanceId(newInstanceId);
+    setEntities(AppStorage.getEntities(newInstanceId));
+    setMedicines(AppStorage.getMedicines(newInstanceId));
+    setSales(AppStorage.getSales(newInstanceId));
+    setTransactions(AppStorage.getTransactions(newInstanceId));
+    setExpenses(AppStorage.getExpenses(newInstanceId));
+    setSettings(AppStorage.getSettings(newInstanceId));
+  }, []);
 
   // Initialize theme on mount
   useEffect(() => {
@@ -67,11 +81,36 @@ export default function App() {
     ThemeService.applyTheme(themeId);
   };
 
-  // Check URL parameters for 1-click QR Pairing from other devices
+  // Check URL parameters for instance/pharmacy or 1-click QR Pairing from other devices
   useEffect(() => {
     try {
       if (typeof window !== 'undefined' && window.location.search) {
         const params = new URLSearchParams(window.location.search);
+
+        // 1. Check for isolated pharmacy instance code in URL (?instance=... or ?pharmacy=...)
+        const instanceParam = params.get('instance') || params.get('pharmacy');
+        if (instanceParam) {
+          const targetCode = decodeURIComponent(instanceParam).trim();
+          const allInstances = InstanceService.getInstances();
+          const found = allInstances.find(
+            i => i.id === targetCode || i.code.toLowerCase() === targetCode.toLowerCase()
+          );
+          if (found) {
+            handleSwitchInstance(found.id);
+          } else {
+            // Auto-register instance if opened via link
+            const newInst = InstanceService.createInstance({
+              pharmacyName: targetCode.startsWith('PH-') ? `صيدلية (${targetCode})` : targetCode,
+              ownerName: 'الصيدلي المسؤول',
+              phone: '0590000000',
+              customCode: targetCode.toUpperCase(),
+              initEmpty: true,
+            });
+            handleSwitchInstance(newInst.id);
+          }
+        }
+
+        // 2. Check for Supabase sync parameters
         const syncUrl = params.get('sync_url');
         const syncKey = params.get('sync_key');
         if (syncUrl && syncKey) {
@@ -90,9 +129,9 @@ export default function App() {
         }
       }
     } catch (e) {
-      console.warn('QR query param parse failed:', e);
+      console.warn('URL query param parse failed:', e);
     }
-  }, []);
+  }, [handleSwitchInstance]);
 
   // Sync to localStorage whenever states change
   useEffect(() => {
@@ -405,6 +444,15 @@ export default function App() {
         onApplyImportedData={handleApplyImportedData}
       />
 
+      {/* Pharmacy Workspaces & Data Isolation Manager Modal */}
+      <PharmacyInstanceManagerModal
+        isOpen={showInstanceManagerModal}
+        onClose={() => setShowInstanceManagerModal(false)}
+        onInstanceSwitched={handleSwitchInstance}
+        currentSettings={settings}
+        currentRole={currentRole}
+      />
+
       {/* Top Application Header */}
       <Header
         settings={settings}
@@ -414,6 +462,7 @@ export default function App() {
         onOpenAbout={() => setShowAboutModal(true)}
         onOpenThemeSelector={() => setShowThemeModal(true)}
         onOpenDeviceSync={() => setShowDeviceSyncModal(true)}
+        onOpenInstanceManager={() => setShowInstanceManagerModal(true)}
         onToggleMobileMenu={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
         onNewSaleShortcut={() => setCurrentTab('pos')}
         onOpenSuperAdmin={handleOpenSuperAdmin}
@@ -456,6 +505,7 @@ export default function App() {
           onOpenAbout={() => setShowAboutModal(true)}
           onOpenThemeSelector={() => setShowThemeModal(true)}
           onOpenDeviceSync={() => setShowDeviceSyncModal(true)}
+          onOpenInstanceManager={() => setShowInstanceManagerModal(true)}
           currentRole={currentRole}
           onOpenSuperAdmin={handleOpenSuperAdmin}
           isMobileOpen={isMobileDrawerOpen}
@@ -549,6 +599,7 @@ export default function App() {
               onNavigateToSuperAdmin={handleOpenSuperAdmin}
               onOpenSupabaseSync={() => setShowSupabaseModal(true)}
               onOpenDeviceSync={() => setShowDeviceSyncModal(true)}
+              onOpenInstanceManager={() => setShowInstanceManagerModal(true)}
             />
           )}
 

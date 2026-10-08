@@ -35,6 +35,7 @@ interface SidebarProps {
   onOpenAbout: () => void;
   onOpenThemeSelector?: () => void;
   onOpenDeviceSync?: () => void;
+  onOpenInstanceManager?: () => void;
   currentRole?: UserRole;
   onOpenSuperAdmin?: () => void;
   isMobileOpen?: boolean;
@@ -50,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAbout,
   onOpenThemeSelector,
   onOpenDeviceSync,
+  onOpenInstanceManager,
   currentRole = 'admin',
   onOpenSuperAdmin,
   isMobileOpen = false,
@@ -178,10 +180,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
 
-        {/* Quick Tools: Themes & Device Sync */}
-        <div className="pt-2 pb-1">
+        {/* Quick Tools: Themes & Device Sync & Pharmacy Isolation */}
+        <div className="pt-2 pb-1 space-y-1">
           <div className="text-[10px] font-bold text-slate-400 px-3 py-1 uppercase tracking-wider">
-            المظهر والأجهزة
+            المظهر والأجهزة والمقرات
           </div>
           <div className="grid grid-cols-2 gap-1.5 px-1">
             {onOpenThemeSelector && (
@@ -203,6 +205,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             )}
           </div>
+          {onOpenInstanceManager && (
+            <div className="px-1">
+              <button
+                type="button"
+                onClick={onOpenInstanceManager}
+                className="w-full flex items-center justify-center gap-2 p-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/50 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-200/80 dark:border-teal-800/60 transition-all"
+              >
+                <span>🏢 تخصيص وعزل النسخ</span>
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 

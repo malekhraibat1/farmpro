@@ -82,9 +82,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     if (selectedCategory !== 'all' && med.category !== selectedCategory) return false;
 
     // Filter type
-    const exp = new Date(med.expiryDate);
-    if (filterType === 'expired' && exp >= now) return false;
-    if (filterType === 'near_expiry' && (exp < now || exp > ninetyDays)) return false;
+    const exp = med.expiryDate ? new Date(med.expiryDate) : null;
+    const isValidExp = exp && !isNaN(exp.getTime());
+    if (filterType === 'expired' && (!isValidExp || exp >= now)) return false;
+    if (filterType === 'near_expiry' && (!isValidExp || exp < now || exp > ninetyDays)) return false;
     if (filterType === 'low_stock' && med.stockQuantity > med.minQuantity) return false;
 
     return true;
@@ -128,6 +129,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     e.preventDefault();
     if (!tradeName.trim()) return;
 
+    const sQty = Math.max(0, parseInt(stockQuantity) || 0);
+    const mQty = Math.max(0, parseInt(minQuantity) || 0);
+    const pPrice = Math.max(0, parseFloat(purchasePrice) || 0);
+    const sPrice = Math.max(0, parseFloat(sellPrice) || 0);
+
     if (editingMed) {
       onUpdateMedicine({
         ...editingMed,
@@ -136,10 +142,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         genericName: genericName.trim(),
         category,
         unit,
-        stockQuantity: parseInt(stockQuantity) || 0,
-        minQuantity: parseInt(minQuantity) || 0,
-        purchasePrice: parseFloat(purchasePrice) || 0,
-        sellPrice: parseFloat(sellPrice) || 0,
+        stockQuantity: sQty,
+        minQuantity: mQty,
+        purchasePrice: pPrice,
+        sellPrice: sPrice,
         batchNumber: batchNumber.trim(),
         expiryDate,
         manufacturer: manufacturer.trim(),
@@ -151,10 +157,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         genericName: genericName.trim(),
         category,
         unit,
-        stockQuantity: parseInt(stockQuantity) || 0,
-        minQuantity: parseInt(minQuantity) || 0,
-        purchasePrice: parseFloat(purchasePrice) || 0,
-        sellPrice: parseFloat(sellPrice) || 0,
+        stockQuantity: sQty,
+        minQuantity: mQty,
+        purchasePrice: pPrice,
+        sellPrice: sPrice,
         batchNumber: batchNumber.trim(),
         expiryDate,
         manufacturer: manufacturer.trim(),
@@ -192,14 +198,16 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setShowExcelModal(true)}
-            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex items-center gap-2"
-            title="استيراد أصناف وأسعار الأدوية من ملف إكسل أو CSV دفعة واحدة"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>استيراد أصناف من إكسل (Excel)</span>
-          </button>
+          {currentRole !== 'pharmacist' && (
+            <button
+              onClick={() => setShowExcelModal(true)}
+              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex items-center gap-2"
+              title="استيراد أصناف وأسعار الأدوية من ملف إكسل أو CSV دفعة واحدة (خاص بالمدير)"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>استيراد أصناف من إكسل (Excel)</span>
+            </button>
+          )}
 
           <button
             onClick={handleOpenAdd}
@@ -386,7 +394,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         </div>
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-slate-600">
-                        {med.purchasePrice.toFixed(2)} {settings.currency}
+                        {currentRole === 'pharmacist' ? (
+                          <span className="text-slate-400 font-sans text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200" title="محمي لصلاحية المدير">
+                            •••• 🔒
+                          </span>
+                        ) : (
+                          `${med.purchasePrice.toFixed(2)} ${settings.currency}`
+                        )}
                       </td>
                       <td className="py-3 px-4 font-mono font-black text-emerald-700 text-sm">
                         {med.sellPrice.toFixed(2)} {settings.currency}
@@ -416,7 +430,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                           >
                             <Edit className="w-4 h-4" />
                           </button>
-                          {currentRole === 'admin' && (
+                          {currentRole !== 'pharmacist' && (
                             <button
                               onClick={() => {
                                 if (confirm(`هل أنت متأكد من حذف ${med.tradeName}؟`)) {
@@ -424,7 +438,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                 }
                               }}
                               className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
-                              title="حذف الصنف"
+                              title="حذف الصنف (خاص بالمدير)"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>

@@ -36,61 +36,151 @@ body {
 }
 
 /* ========================================================
+   GLOBAL BUTTON & INTERACTION VISIBILITY PROTECTIONS
+   ======================================================== */
+
+/* Prevent text inside buttons from being selected/disappearing on click or tap */
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+button::selection,
+button *::selection {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+/* On Click / Active: subtle press effect WITHOUT changing text color */
+button:active,
+[role="button"]:active {
+  transform: scale(0.98);
+}
+
+/* 1. BUTTON INTERACTION & CONTRAST FOUNDATIONS */
+/* Maintain contrast and readability for buttons */
+button.text-white,
+button.text-white > span,
+button.text-white > div,
+button.text-white svg {
+  color: #ffffff;
+}
+
+/* ========================================================
    HIGH CONTRAST & CRYSTAL CLEAR TYPOGRAPHY SYSTEM
    ======================================================== */
 
-/* Global Contrast Boost - Improves legibility across all themes */
+/* Global Contrast Boost - Improves readability across themes without breaking buttons */
 .contrast-boost,
+[data-theme="pure_clarity"],
 [data-theme="ultra_contrast"],
 [data-theme="crisp_classic"] {
   --text-dark: #000000;
-  --text-body: #09090b;
-  --text-secondary: #27272a;
-  --text-muted: #3f3f46;
-  --border-strong: #71717a;
+  --text-body: #0f172a;
+  --text-secondary: #1e293b;
+  --text-muted: #334155;
+  --border-strong: #475569;
 }
 
 .contrast-boost body,
+[data-theme="pure_clarity"] body,
 [data-theme="ultra_contrast"] body {
-  background-color: #f4f4f5 !important;
-  color: #000000 !important;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-weight: 550;
+}
+
+/* Headings in high contrast mode */
+.contrast-boost h1,
+.contrast-boost h2,
+.contrast-boost h3,
+.contrast-boost h4,
+[data-theme="pure_clarity"] h1,
+[data-theme="pure_clarity"] h2,
+[data-theme="pure_clarity"] h3,
+[data-theme="pure_clarity"] h4,
+[data-theme="ultra_contrast"] h1,
+[data-theme="ultra_contrast"] h2,
+[data-theme="ultra_contrast"] h3,
+[data-theme="ultra_contrast"] h4,
+[data-theme="crisp_classic"] h1,
+[data-theme="crisp_classic"] h2,
+[data-theme="crisp_classic"] h3,
+[data-theme="crisp_classic"] h4 {
+  color: #020617 !important;
+  font-weight: 850;
+  letter-spacing: -0.01em;
+}
+
+/* Crystal Clear Alerts & Badges for pure_clarity */
+[data-theme="pure_clarity"] .bg-emerald-50 {
+  background-color: #ecfdf5 !important;
+  border-color: #10b981 !important;
+  color: #064e3b !important;
+}
+
+[data-theme="pure_clarity"] .bg-rose-50 {
+  background-color: #fff1f2 !important;
+  border-color: #f43f5e !important;
+  color: #881337 !important;
+}
+
+[data-theme="pure_clarity"] .bg-amber-50 {
+  background-color: #fffbeb !important;
+  border-color: #f59e0b !important;
+  color: #78350f !important;
+}
+
+/* Safely enhance light gray text on light backgrounds WITHOUT affecting buttons */
+.contrast-boost p.text-slate-400,
+.contrast-boost span.text-slate-400:not(button *),
+.contrast-boost div.text-slate-400:not(button *),
+.contrast-boost p.text-slate-500,
+.contrast-boost span.text-slate-500:not(button *),
+.contrast-boost div.text-slate-500:not(button *),
+[data-theme="pure_clarity"] p.text-slate-400,
+[data-theme="pure_clarity"] span.text-slate-400:not(button *),
+[data-theme="pure_clarity"] div.text-slate-400:not(button *),
+[data-theme="pure_clarity"] p.text-slate-500,
+[data-theme="pure_clarity"] span.text-slate-500:not(button *),
+[data-theme="pure_clarity"] div.text-slate-500:not(button *),
+[data-theme="ultra_contrast"] p.text-slate-400,
+[data-theme="ultra_contrast"] span.text-slate-400:not(button *),
+[data-theme="ultra_contrast"] div.text-slate-400:not(button *),
+[data-theme="ultra_contrast"] p.text-slate-500,
+[data-theme="ultra_contrast"] span.text-slate-500:not(button *),
+[data-theme="ultra_contrast"] div.text-slate-500:not(button *) {
+  color: #334155;
   font-weight: 600;
 }
 
-/* Make washed-out light gray text readable, crisp, and high-contrast */
-.contrast-boost .text-slate-400,
-.contrast-boost .text-slate-500,
-.contrast-boost .text-gray-400,
-.contrast-boost .text-gray-500,
-[data-theme="ultra_contrast"] .text-slate-400,
-[data-theme="ultra_contrast"] .text-slate-500,
-[data-theme="ultra_contrast"] .text-gray-400,
-[data-theme="ultra_contrast"] .text-gray-500 {
-  color: #27272a !important;
-  font-weight: 600 !important;
-}
-
-.contrast-boost .text-slate-600,
-.contrast-boost .text-slate-700,
-.contrast-boost .text-slate-800,
-.contrast-boost .text-slate-900,
-[data-theme="ultra_contrast"] .text-slate-600,
-[data-theme="ultra_contrast"] .text-slate-700,
-[data-theme="ultra_contrast"] .text-slate-800,
-[data-theme="ultra_contrast"] .text-slate-900 {
-  color: #000000 !important;
-  font-weight: 700 !important;
+/* Safely enhance standard slate text WITHOUT overriding buttons */
+.contrast-boost p.text-slate-600,
+.contrast-boost p.text-slate-700,
+.contrast-boost span.text-slate-600:not(button *),
+.contrast-boost span.text-slate-700:not(button *),
+[data-theme="ultra_contrast"] p.text-slate-600,
+[data-theme="ultra_contrast"] p.text-slate-700,
+[data-theme="ultra_contrast"] span.text-slate-600:not(button *),
+[data-theme="ultra_contrast"] span.text-slate-700:not(button *) {
+  color: #09090b;
+  font-weight: 600;
 }
 
 /* Strengthen input fields for high visibility */
-.contrast-boost input,
+.contrast-boost input:not([type="button"]):not([type="submit"]),
 .contrast-boost select,
 .contrast-boost textarea,
-[data-theme="ultra_contrast"] input,
+[data-theme="ultra_contrast"] input:not([type="button"]):not([type="submit"]),
 [data-theme="ultra_contrast"] select,
 [data-theme="ultra_contrast"] textarea {
-  color: #000000 !important;
-  border-color: #52525b !important;
+  color: #09090b !important;
+  border-color: #64748b !important;
   background-color: #ffffff !important;
   font-weight: 600 !important;
 }
@@ -99,23 +189,23 @@ body {
 .contrast-boost textarea::placeholder,
 [data-theme="ultra_contrast"] input::placeholder,
 [data-theme="ultra_contrast"] textarea::placeholder {
-  color: #52525b !important;
+  color: #64748b !important;
   font-weight: 500;
 }
 
 /* Make tables sharp and high-contrast */
 .contrast-boost table th,
 [data-theme="ultra_contrast"] table th {
-  color: #000000 !important;
-  background-color: #e4e4e7 !important;
-  font-weight: 900 !important;
-  border-bottom: 2px solid #27272a !important;
+  color: #09090b !important;
+  background-color: #f1f5f9 !important;
+  font-weight: 800 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
 }
 
 .contrast-boost table td,
 [data-theme="ultra_contrast"] table td {
-  color: #09090b !important;
-  border-bottom: 1px solid #d4d4d8 !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid #e2e8f0 !important;
   font-weight: 600;
 }
 
@@ -128,34 +218,16 @@ body {
 
 /* Crisp Classic Navy Theme */
 [data-theme="crisp_classic"] body {
-  background-color: #f1f5f9 !important;
-  color: #0f172a !important;
-  font-weight: 600;
-}
-
-[data-theme="crisp_classic"] .text-slate-400,
-[data-theme="crisp_classic"] .text-slate-500 {
-  color: #334155 !important;
-  font-weight: 600 !important;
-}
-
-[data-theme="crisp_classic"] .text-slate-800,
-[data-theme="crisp_classic"] .text-slate-900 {
-  color: #0f172a !important;
-  font-weight: 800 !important;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-weight: 500;
 }
 
 /* Soft Paper Ink Theme */
 [data-theme="soft_paper"] body {
-  background-color: #f7f6f3 !important;
-  color: #1c1917 !important;
-  font-weight: 600;
-}
-
-[data-theme="soft_paper"] .text-slate-400,
-[data-theme="soft_paper"] .text-slate-500 {
-  color: #44403c !important;
-  font-weight: 600 !important;
+  background-color: #f7f6f3;
+  color: #1c1917;
+  font-weight: 500;
 }
 
 /* Custom scrollbars */

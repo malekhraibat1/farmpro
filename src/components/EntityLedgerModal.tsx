@@ -18,7 +18,7 @@ import {
   User,
   CreditCard,
 } from 'lucide-react';
-import { Entity, FinancialTransaction, AppSettings, TransactionType } from '../types';
+import { Entity, FinancialTransaction, AppSettings, TransactionType, UserRole } from '../types';
 import { PrintStatementModal } from './PrintStatementModal';
 
 interface EntityLedgerModalProps {
@@ -27,6 +27,7 @@ interface EntityLedgerModalProps {
   entity: Entity;
   transactions: FinancialTransaction[];
   settings: AppSettings;
+  currentRole?: UserRole;
   onAddTransaction: (
     entityId: string,
     amount: number,
@@ -44,6 +45,7 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
   entity,
   transactions,
   settings,
+  currentRole = 'admin',
   onAddTransaction,
   onUpdateCreditLimit,
 }) => {
@@ -305,16 +307,19 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
                 <span>سند صرف نقدي (سداد)</span>
               </button>
 
-              <button
-                onClick={() => {
-                  setFormType('invoice');
-                  setShowAddForm(true);
-                }}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 active:scale-95 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>قيد فاتورة / تعديل رصيد</span>
-              </button>
+              {currentRole !== 'pharmacist' && (
+                <button
+                  onClick={() => {
+                    setFormType('invoice');
+                    setShowAddForm(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 active:scale-95 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
+                  title="خاص بالمدير لتعديل الرصيد يدوياً"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>قيد فاتورة / تعديل رصيد</span>
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">

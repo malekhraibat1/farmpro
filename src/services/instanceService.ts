@@ -253,7 +253,60 @@ export class InstanceService {
     instances.push(newInstance);
     this.saveInstances(instances);
 
+    if (params.supabaseConfig?.url && params.supabaseConfig?.anonKey) {
+      const key = `pharma_supabase_config_v1_inst_${uniqueId}`;
+      safeSet(key, JSON.stringify({
+        url: params.supabaseConfig.url.trim(),
+        anonKey: params.supabaseConfig.anonKey.trim(),
+        isConnected: true,
+      }));
+    }
+
     return newInstance;
+  }
+
+  /**
+   * Update Supabase configuration for a specific pharmacy instance
+   */
+  static updateInstanceSupabase(
+    instanceId: string,
+    config: { url: string; anonKey: string } | undefined
+  ): void {
+    const instances = this.getInstances();
+    const idx = instances.findIndex(i => i.id === instanceId);
+    if (idx !== -1) {
+      instances[idx] = {
+        ...instances[idx],
+        supabaseConfig: config,
+        lastActiveAt: new Date().toISOString(),
+      };
+      this.saveInstances(instances);
+    }
+
+    const storageKey =
+      instanceId === 'default'
+        ? 'pharma_supabase_config_v1'
+        : `pharma_supabase_config_v1_inst_${instanceId}`;
+
+    if (config?.url && config?.anonKey) {
+      safeSet(
+        storageKey,
+        JSON.stringify({
+          url: config.url.trim(),
+          anonKey: config.anonKey.trim(),
+          isConnected: true,
+        })
+      );
+    } else {
+      safeSet(
+        storageKey,
+        JSON.stringify({
+          url: '',
+          anonKey: '',
+          isConnected: false,
+        })
+      );
+    }
   }
 
   /**
@@ -299,6 +352,19 @@ export class InstanceService {
     if (typeof window === 'undefined') return '';
     const base = window.location.origin + window.location.pathname;
     return `${base}?instance=${encodeURIComponent(instanceId)}`;
+  }
+
+  /**
+   * Build a direct launch URL for a specific pharmacy instance including cloud sync keys
+   */
+  static buildInstanceUrlWithSync(instanceId: string): string {
+    const base = this.buildInstanceUrl(instanceId);
+    if (!base) return '';
+    const inst = this.getInstanceById(instanceId) || (instanceId === 'default' ? DEFAULT_INSTANCE : undefined);
+    if (inst?.supabaseConfig?.url && inst?.supabaseConfig?.anonKey) {
+      return `${base}&sync_url=${encodeURIComponent(inst.supabaseConfig.url)}&sync_key=${encodeURIComponent(inst.supabaseConfig.anonKey)}`;
+    }
+    return base;
   }
 
   /**

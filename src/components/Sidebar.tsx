@@ -38,6 +38,7 @@ interface SidebarProps {
   onOpenInstanceManager?: () => void;
   currentRole?: UserRole;
   onOpenSuperAdmin?: () => void;
+  onSwitchRole?: () => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
   nearExpiryCount?: number;
@@ -54,11 +55,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenInstanceManager,
   currentRole = 'admin',
   onOpenSuperAdmin,
+  onSwitchRole,
   isMobileOpen = false,
   onCloseMobile,
   nearExpiryCount = 0,
   lowStockCount = 0,
 }) => {
+  const isPharmacist = currentRole === 'pharmacist';
+
   const navItems = [
     {
       id: 'dashboard' as NavTab,
@@ -98,12 +102,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'التقارير المالية والأرباح',
       icon: BarChart3,
       badge: null,
+      adminOnly: true,
     },
     {
       id: 'settings' as NavTab,
       label: 'الإعدادات والنسخ',
       icon: Settings,
       badge: null,
+      adminOnly: true,
     },
     {
       id: 'super_admin' as NavTab,
@@ -114,6 +120,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       isSuper: true,
     },
   ];
+
+  // Filter items according to permissions
+  const visibleNavItems = navItems.filter(item => {
+    if (item.id === 'super_admin') {
+      return currentRole === 'super_admin';
+    }
+    if (isPharmacist && item.adminOnly) {
+      return false; // Hide Reports and Settings from regular pharmacist
+    }
+    return true;
+  });
 
   const content = (
     <div className="flex flex-col h-full bg-white border-l border-slate-200 text-right select-none">
@@ -132,10 +149,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Nav list */}
       <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">
+        {/* Role Status Badge */}
+        {isPharmacist ? (
+          <div className="mb-3 p-2.5 rounded-2xl bg-blue-50 border border-blue-200/90 text-blue-950 text-xs flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-1.5 font-bold">
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <span>وضع: مستخدم عادي (كاشير)</span>
+            </div>
+            {onSwitchRole && (
+              <button
+                type="button"
+                onClick={onSwitchRole}
+                className="px-2.5 py-1 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-[10px] shadow-xs transition shrink-0"
+                title="إدخال رمز PIN للانتقال لوضع المدير"
+              >
+                دخول كمدير 🔑
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="mb-3 p-2.5 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-950 text-xs flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-1.5 font-bold">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <span>وضع: {currentRole === 'super_admin' ? 'سوبر أدمن' : 'مدير عام الصيدلية'}</span>
+            </div>
+            {onSwitchRole && (
+              <button
+                type="button"
+                onClick={onSwitchRole}
+                className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-black text-white font-black text-[10px] shadow-xs transition shrink-0"
+                title="العودة لوضع الصيدلي العادي"
+              >
+                وضع الكاشير 👤
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="text-[11px] font-bold text-slate-400 px-3 py-1 uppercase tracking-wider">
-          الوحدات البرمجية
+          الوحدات البرمجية المتاحة
         </div>
-        {navItems.map(item => {
+        {visibleNavItems.map(item => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
           return (
@@ -148,28 +202,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold transition-all ${
                 isActive
                   ? item.id === 'super_admin'
-                    ? 'bg-gradient-to-l from-amber-500 to-yellow-600 text-white shadow-md shadow-amber-500/25'
-                    : 'bg-gradient-to-l from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/20'
+                    ? 'bg-amber-600 bg-gradient-to-l from-amber-500 to-yellow-600 text-white shadow-md shadow-amber-500/25 ring-2 ring-amber-400/30'
+                    : 'bg-cyan-700 bg-gradient-to-l from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/20 ring-2 ring-cyan-500/30'
                   : item.id === 'super_admin'
-                  ? 'bg-amber-50/60 text-amber-900 border border-amber-200/60 hover:bg-amber-100'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  ? 'bg-amber-50 text-amber-950 border border-amber-200 hover:bg-amber-100'
+                  : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-950'
               }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <Icon
-                  className={`w-5 h-5 transition-transform ${
+                  className={`w-5 h-5 shrink-0 transition-transform ${
                     isActive
                       ? 'scale-110 text-white'
                       : item.id === 'super_admin'
                       ? 'text-amber-600'
-                      : 'text-slate-400'
+                      : 'text-slate-500 dark:text-slate-400'
                   }`}
                 />
-                <span>{item.label}</span>
+                <span
+                  className={`truncate text-sm font-bold ${
+                    isActive ? 'text-white font-black' : 'text-slate-900 dark:text-slate-100'
+                  }`}
+                >
+                  {item.label}
+                </span>
               </div>
               {item.badge && (
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
                     isActive ? 'bg-white/20 text-white' : item.badgeColor
                   }`}
                 >
@@ -205,7 +265,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             )}
           </div>
-          {onOpenInstanceManager && (
+          {onOpenInstanceManager && !isPharmacist && (
             <div className="px-1">
               <button
                 type="button"

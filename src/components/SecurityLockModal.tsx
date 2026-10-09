@@ -86,8 +86,8 @@ export const SecurityLockModal: React.FC<SecurityLockModalProps> = ({
           <h2 className="text-xl font-black text-slate-800">قفل النظام والحماية</h2>
           <p className="text-xs text-slate-500 mt-1">
             {selectedRole === 'super_admin'
-              ? 'أدخل رمز السوبر أدمن (الرمز الافتراضي: 7777)'
-              : 'أدخل الرمز السري (الرمز الافتراضي: 1234)'}
+              ? 'أدخل رمز السوبر أدمن للتحقق والمتابعة'
+              : 'أدخل الرمز السري للمتابعة'}
           </p>
         </div>
 

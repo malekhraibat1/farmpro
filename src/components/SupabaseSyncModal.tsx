@@ -27,6 +27,7 @@ import {
   SUPABASE_RLS_FIX_SQL,
   cleanAndValidateSupabaseUrl,
 } from '../services/supabaseService';
+import { InstanceService } from '../services/instanceService';
 import { Entity, Medicine, SaleInvoice, FinancialTransaction, Expense, AppSettings } from '../types';
 
 interface SupabaseSyncModalProps {
@@ -61,6 +62,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
   const [url, setUrl] = useState('');
   const [anonKey, setAnonKey] = useState('');
   const [config, setConfig] = useState<SupabaseConfig>(() => SupabaseService.getConfig());
+  const [activeInstance, setActiveInstance] = useState(() => InstanceService.getActiveInstance());
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
@@ -81,6 +83,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
     setConfig(cfg);
     setUrl(cfg.url);
     setAnonKey(cfg.anonKey);
+    setActiveInstance(InstanceService.getActiveInstance());
   }, [isOpen]);
 
   // Check URL on change for common paste errors
@@ -254,6 +257,32 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
           {/* TAB 1: CONNECTION & SYNC */}
           {activeStepTab === 'connection' && (
             <div className="space-y-5">
+              {/* Active Instance Identity Banner */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 bg-emerald-600 text-white rounded-xl shadow-sm">
+                    <Database className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 text-xs">
+                        الصيدلية الحالية: {activeInstance.pharmacyName}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-[10px] font-bold">
+                        {activeInstance.code}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 block">
+                      بيانات وسيرفر Supabase هنا معزولة ومخصصة لهذه الصيدلية حصراً ولا تتداخل مع أي صيدلية أخرى
+                    </span>
+                  </div>
+                </div>
+
+                <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold shrink-0">
+                  نسخة معزولة
+                </span>
+              </div>
+
               {/* Status Banner */}
               <div
                 className={`p-4 rounded-2xl border flex items-center justify-between ${

@@ -32,9 +32,17 @@ import { SupabaseSyncModal } from './components/SupabaseSyncModal';
 import { PharmacyInstanceManagerModal } from './components/PharmacyInstanceManagerModal';
 import { InstanceLoginModal } from './components/InstanceLoginModal';
 import { InstanceService } from './services/instanceService';
-import { AlertCircle, Key, Sparkles } from 'lucide-react';
+import { AlertCircle, Key, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 export default function App() {
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'info' | 'error' } | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+
   // State from LocalStorage
   const [entities, setEntities] = useState<Entity[]>(() => AppStorage.getEntities());
   const [medicines, setMedicines] = useState<Medicine[]>(() => AppStorage.getMedicines());
@@ -50,7 +58,7 @@ export default function App() {
 
   // UI Navigation & Modals
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
-  const [currentRole, setCurrentRole] = useState<UserRole>('admin');
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => AppStorage.getCurrentRole());
   const [isLocked, setIsLocked] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
@@ -81,6 +89,25 @@ export default function App() {
     ThemeService.applyTheme(currentThemeId);
   }, [currentThemeId]);
 
+  // Persist current role
+  useEffect(() => {
+    AppStorage.setCurrentRole(currentRole);
+  }, [currentRole]);
+
+  // Handle switching role between regular pharmacist and admin/super_admin
+  const handleToggleRole = () => {
+    if (currentRole === 'pharmacist') {
+      setIsLocked(true); // Prompts for Admin PIN
+    } else {
+      // One-click drop permissions back to regular user (pharmacist) for security
+      setCurrentRole('pharmacist');
+      if (currentTab === 'reports' || currentTab === 'settings' || currentTab === 'super_admin') {
+        setCurrentTab('dashboard');
+      }
+      showToast('تم تفعيل وضع المستخدم العادي (الصيدلي / الكاشير) وحجب الصلاحيات الإدارية 👤', 'info');
+    }
+  };
+
   const handleSelectTheme = (themeId: ThemeId) => {
     setCurrentThemeId(themeId);
     ThemeService.applyTheme(themeId);
@@ -94,6 +121,8 @@ export default function App() {
 
         // 1. Check for isolated pharmacy instance code in URL (?instance=... or ?pharmacy=...)
         const instanceParam = params.get('instance') || params.get('pharmacy');
+        let targetInstanceId = InstanceService.getActiveInstanceId();
+
         if (instanceParam) {
           const targetCode = decodeURIComponent(instanceParam).trim();
           const allInstances = InstanceService.getInstances();
@@ -101,6 +130,7 @@ export default function App() {
             i => i.id === targetCode || i.code.toLowerCase() === targetCode.toLowerCase()
           );
           if (found) {
+            targetInstanceId = found.id;
             handleSwitchInstance(found.id);
           } else {
             // Auto-register instance if opened via link
@@ -111,6 +141,7 @@ export default function App() {
               customCode: targetCode.toUpperCase(),
               initEmpty: true,
             });
+            targetInstanceId = newInst.id;
             handleSwitchInstance(newInst.id);
           }
         }
@@ -119,15 +150,18 @@ export default function App() {
         const syncUrl = params.get('sync_url');
         const syncKey = params.get('sync_key');
         if (syncUrl && syncKey) {
-          const currentConfig = SupabaseService.getConfig();
+          const currentConfig = SupabaseService.getConfig(targetInstanceId);
           if (currentConfig.url !== syncUrl || currentConfig.anonKey !== syncKey) {
-            SupabaseService.saveConfig({
-              url: decodeURIComponent(syncUrl),
-              anonKey: decodeURIComponent(syncKey),
-              isConnected: true,
-              lastSyncedAt: new Date().toLocaleTimeString('ar-EG'),
-            });
-            alert('🎉 تم ربط هذا الهاتف تلقائياً بقاعدة بيانات الصيدلية السحابية بنجاح عبر مسح الـ QR!');
+            SupabaseService.saveConfig(
+              {
+                url: decodeURIComponent(syncUrl),
+                anonKey: decodeURIComponent(syncKey),
+                isConnected: true,
+                lastSyncedAt: new Date().toLocaleTimeString('ar-EG'),
+              },
+              targetInstanceId
+            );
+            showToast('🎉 تم ربط هذا الجهاز تلقائياً بقاعدة بيانات الصيدلية السحابية (Supabase) بنجاح!', 'success');
             // Clean URL query to keep it clean
             window.history.replaceState({}, document.title, window.location.pathname);
           }
@@ -523,6 +557,9 @@ export default function App() {
           onSelectTab={tab => {
             if (tab === 'super_admin') {
               handleOpenSuperAdmin();
+            } else if (currentRole === 'pharmacist' && (tab === 'reports' || tab === 'settings')) {
+              setIsLocked(true);
+              showToast('🔒 هذا القسم يتطلب صلاحية المدير العام - أدخل الرمز السري', 'info');
             } else {
               setCurrentTab(tab);
             }
@@ -535,6 +572,7 @@ export default function App() {
           onOpenInstanceManager={() => setShowInstanceManagerModal(true)}
           currentRole={currentRole}
           onOpenSuperAdmin={handleOpenSuperAdmin}
+          onSwitchRole={handleToggleRole}
           isMobileOpen={isMobileDrawerOpen}
           onCloseMobile={() => setIsMobileDrawerOpen(false)}
           nearExpiryCount={nearExpiryCount}
@@ -562,6 +600,7 @@ export default function App() {
               entities={entities}
               transactions={transactions}
               settings={settings}
+              currentRole={currentRole}
               onAddEntity={handleAddEntity}
               onAddTransaction={handleAddTransaction}
               selectedEntityForLedger={selectedEntityForLedger}
@@ -657,11 +696,36 @@ export default function App() {
       <MobileNav
         currentTab={currentTab}
         onSelectTab={tab => {
+          if (currentRole === 'pharmacist' && (tab === 'reports' || tab === 'settings' || tab === 'super_admin')) {
+            setIsLocked(true);
+            showToast('🔒 هذا القسم يتطلب صلاحية المدير العام - أدخل الرمز السري', 'info');
+            return;
+          }
           setCurrentTab(tab);
           setSelectedEntityForLedger(null);
         }}
         onOpenMenu={() => setIsMobileDrawerOpen(true)}
       />
+
+      {/* In-app Toast Banner */}
+      {toast && (
+        <div className="fixed bottom-16 sm:bottom-6 right-4 sm:right-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300 max-w-sm">
+          <div
+            className={`px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-bold border backdrop-blur-md ${
+              toast.type === 'error'
+                ? 'bg-rose-900/95 text-white border-rose-700'
+                : 'bg-emerald-900/95 text-white border-emerald-700'
+            }`}
+          >
+            {toast.type === 'error' ? (
+              <AlertTriangle className="w-5 h-5 text-rose-300 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
+            )}
+            <span className="leading-snug">{toast.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

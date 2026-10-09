@@ -118,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <ArrowRightLeft className="w-3 h-3 text-indigo-500 animate-pulse" />
                   <span>ربط الأجهزة</span>
                 </button>
-                {onOpenInstanceManager && (
+                {onOpenInstanceManager && currentRole !== 'pharmacist' && (
                   <button
                     type="button"
                     onClick={onOpenInstanceManager}
@@ -146,7 +146,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-2">
           
           {/* Pharmacy Instances Button */}
-          {onOpenInstanceManager && (
+          {onOpenInstanceManager && currentRole !== 'pharmacist' && (
             <button
               onClick={onOpenInstanceManager}
               className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 border border-teal-200/80 dark:border-teal-800 text-teal-700 dark:text-teal-300 text-xs font-bold transition-all shadow-xs"

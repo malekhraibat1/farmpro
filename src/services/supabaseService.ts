@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Entity, Medicine, SaleInvoice, FinancialTransaction, Expense, AppSettings } from '../types';
+import { InstanceService } from './instanceService';
 
 const SUPABASE_CONFIG_KEY = 'pharma_supabase_config_v1';
 
@@ -322,20 +323,47 @@ export class SupabaseService {
   private static clientInstanceId: string | null = null;
 
   static getConfig(instanceId?: string): SupabaseConfig {
-    const key = getSupabaseKey(instanceId);
+    const targetId = instanceId || safeGetStorage('pharma_active_instance_id_v1') || 'default';
+    const key = getSupabaseKey(targetId);
     const raw = safeGetStorage(key);
-    if (!raw) {
-      return { url: '', anonKey: '', isConnected: false };
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed.url) return parsed;
+      } catch {}
     }
+
+    // Fallback: check if the pharmacy instance already has supabaseConfig
     try {
-      return JSON.parse(raw);
-    } catch {
-      return { url: '', anonKey: '', isConnected: false };
-    }
+      const inst = InstanceService.getInstanceById(targetId);
+      if (inst?.supabaseConfig?.url && inst?.supabaseConfig?.anonKey) {
+        return {
+          url: inst.supabaseConfig.url,
+          anonKey: inst.supabaseConfig.anonKey,
+          isConnected: true,
+        };
+      }
+    } catch {}
+
+    // Fallback 2: check if environment variables are provided (e.g. Standalone Vercel deployment per pharmacy)
+    try {
+      const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
+      const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+      if (envUrl && envKey) {
+        return {
+          url: String(envUrl).trim(),
+          anonKey: String(envKey).trim(),
+          isConnected: true,
+        };
+      }
+    } catch {}
+
+    return { url: '', anonKey: '', isConnected: false };
   }
 
   static saveConfig(config: SupabaseConfig, instanceId?: string): void {
-    const key = getSupabaseKey(instanceId);
+    const targetId = instanceId || safeGetStorage('pharma_active_instance_id_v1') || 'default';
+    const key = getSupabaseKey(targetId);
     const { cleanedUrl } = cleanAndValidateSupabaseUrl(config.url);
     const sanitized = {
       ...config,
@@ -343,6 +371,19 @@ export class SupabaseService {
       anonKey: config.anonKey.trim(),
     };
     safeSetStorage(key, JSON.stringify(sanitized));
+
+    // Keep instance record updated as well
+    try {
+      InstanceService.updateInstanceSupabase(
+        targetId,
+        sanitized.url && sanitized.anonKey
+          ? { url: sanitized.url, anonKey: sanitized.anonKey }
+          : undefined
+      );
+    } catch (e) {
+      console.warn('Could not sync instance supabase config:', e);
+    }
+
     this.client = null; // reset client to re-init
     this.clientInstanceId = null;
   }

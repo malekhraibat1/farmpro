@@ -42,8 +42,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                     ? 'text-cyan-600 font-extrabold'
                     : 'text-emerald-600 font-bold'
                   : isActive
-                  ? 'text-cyan-600 font-extrabold'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'text-cyan-700 dark:text-cyan-400 font-black'
+                  : 'text-slate-700 dark:text-slate-300 font-bold hover:text-slate-900'
               }`}
             >
               {tab.highlight ? (

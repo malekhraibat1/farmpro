@@ -26,11 +26,21 @@ import {
   KeyRound,
   Eye,
   EyeOff,
+  Cloud,
+  Server,
+  HardDrive,
+  Code2,
 } from 'lucide-react';
 import { InstanceService, PharmacyInstance } from '../services/instanceService';
 import { AppStorage } from '../services/storage';
 import { AppSettings, UserRole } from '../types';
 import { QRCodeDisplay } from './QRCodeDisplay';
+import {
+  SupabaseService,
+  SUPABASE_SQL_SCHEMA,
+  SUPABASE_RLS_FIX_SQL,
+  cleanAndValidateSupabaseUrl,
+} from '../services/supabaseService';
 
 interface PharmacyInstanceManagerModalProps {
   isOpen: boolean;
@@ -47,7 +57,7 @@ export function PharmacyInstanceManagerModal({
   currentSettings,
   currentRole,
 }: PharmacyInstanceManagerModalProps) {
-  const [activeTab, setActiveTab] = useState<'current' | 'create' | 'list' | 'guide'>('current');
+  const [activeTab, setActiveTab] = useState<'current' | 'create' | 'list' | 'guide' | 'supabase'>('current');
   const [instances, setInstances] = useState<PharmacyInstance[]>([]);
   const [activeInstanceId, setActiveInstanceId] = useState<string>('default');
   const [copiedLink, setCopiedLink] = useState(false);
@@ -64,8 +74,27 @@ export function PharmacyInstanceManagerModal({
   const [formPassword, setFormPassword] = useState('123456');
   const [formIsProtected, setFormIsProtected] = useState(true);
   const [formInitEmpty, setFormInitEmpty] = useState(true);
+  const [formSupabaseUrl, setFormSupabaseUrl] = useState('');
+  const [formSupabaseAnonKey, setFormSupabaseAnonKey] = useState('');
+  const [showFormSupabase, setShowFormSupabase] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
+
+  // Edit Supabase config modal state for any instance
+  const [editingSupabaseInstance, setEditingSupabaseInstance] = useState<PharmacyInstance | null>(null);
+  const [editSupabaseUrl, setEditSupabaseUrl] = useState('');
+  const [editSupabaseAnonKey, setEditSupabaseAnonKey] = useState('');
+  const [editSupabaseTesting, setEditSupabaseTesting] = useState(false);
+  const [editSupabaseTestResult, setEditSupabaseTestResult] = useState<{
+    success: boolean;
+    message: string;
+    correctedUrl?: string;
+  } | null>(null);
+  const [editSupabaseSuccess, setEditSupabaseSuccess] = useState('');
+
+  // SQL code copy states
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [copiedRlsSql, setCopiedRlsSql] = useState(false);
 
   // Edit credentials state for active instance
   const [isEditingCredentials, setIsEditingCredentials] = useState(false);
@@ -137,6 +166,13 @@ export function PharmacyInstanceManagerModal({
         password: formPassword.trim() || '123456',
         isProtected: formIsProtected,
         initEmpty: formInitEmpty,
+        supabaseConfig:
+          showFormSupabase && formSupabaseUrl.trim() && formSupabaseAnonKey.trim()
+            ? {
+                url: formSupabaseUrl.trim(),
+                anonKey: formSupabaseAnonKey.trim(),
+              }
+            : undefined,
       });
 
       // Prepare custom settings for this instance
@@ -172,6 +208,66 @@ export function PharmacyInstanceManagerModal({
     }
   };
 
+  const handleOpenConfigureSupabase = (inst: PharmacyInstance) => {
+    setEditingSupabaseInstance(inst);
+    setEditSupabaseUrl(inst.supabaseConfig?.url || '');
+    setEditSupabaseAnonKey(inst.supabaseConfig?.anonKey || '');
+    setEditSupabaseTestResult(null);
+    setEditSupabaseSuccess('');
+  };
+
+  const handleTestSupabaseForInstance = async () => {
+    if (!editSupabaseUrl.trim() || !editSupabaseAnonKey.trim()) {
+      setEditSupabaseTestResult({
+        success: false,
+        message: 'يرجى إدخال رابط المشروع والمفتاح العام أولاً.',
+      });
+      return;
+    }
+    setEditSupabaseTesting(true);
+    setEditSupabaseTestResult(null);
+    const res = await SupabaseService.testConnection(editSupabaseUrl, editSupabaseAnonKey);
+    setEditSupabaseTesting(false);
+    setEditSupabaseTestResult(res);
+    if (res.correctedUrl && res.correctedUrl !== editSupabaseUrl) {
+      setEditSupabaseUrl(res.correctedUrl);
+    }
+  };
+
+  const handleSaveSupabaseForInstance = () => {
+    if (!editingSupabaseInstance) return;
+    const url = editSupabaseUrl.trim();
+    const key = editSupabaseAnonKey.trim();
+
+    if (url && !key) {
+      alert('يرجى إدخال المفتاح العام (anon key) أو مسح الرابط.');
+      return;
+    }
+
+    const { cleanedUrl } = cleanAndValidateSupabaseUrl(url);
+    const finalConfig = url && key ? { url: cleanedUrl || url, anonKey: key } : undefined;
+
+    InstanceService.updateInstanceSupabase(editingSupabaseInstance.id, finalConfig);
+    loadInstances();
+    setEditSupabaseSuccess('تم حفظ إعدادات السيرفر السحابي لهذه الصيدلية بنجاح!');
+    setTimeout(() => {
+      setEditingSupabaseInstance(null);
+      setEditSupabaseSuccess('');
+    }, 1200);
+  };
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2500);
+  };
+
+  const handleCopyRlsFixSql = () => {
+    navigator.clipboard.writeText(SUPABASE_RLS_FIX_SQL);
+    setCopiedRlsSql(true);
+    setTimeout(() => setCopiedRlsSql(false), 2500);
+  };
+
   const handleOpenEditCredentials = () => {
     if (currentInstance) {
       setEditUsername(currentInstance.username || 'admin');
@@ -193,8 +289,14 @@ export function PharmacyInstanceManagerModal({
   };
 
   const handleCopyLinkWithCredentials = (inst: PharmacyInstance) => {
-    const url = InstanceService.buildInstanceUrl(inst.id);
-    const text = `🏢 بيانات الدخول لصيدلية: ${inst.pharmacyName}\n🔗 الرابط المباشر:\n${url}\n\n👤 اسم المستخدم: ${inst.username || 'admin'}\n🔑 كلمة المرور: ${inst.password || '123456'}\n🛡️ كود النسخة: ${inst.code}`;
+    const url =
+      inst.supabaseConfig?.url && inst.supabaseConfig?.anonKey
+        ? InstanceService.buildInstanceUrlWithSync(inst.id)
+        : InstanceService.buildInstanceUrl(inst.id);
+    const cloudInfo = inst.supabaseConfig?.url
+      ? `\n☁️ السيرفر السحابي الخاص: متصل ومستقل (${inst.supabaseConfig.url})\n⚡ ميزة: يتصل تلقائياً بالسيرفر السحابي فور فتح الرابط!`
+      : `\n💻 وضع التشغيل: محلي معزول`;
+    const text = `🏢 بيانات الدخول والتشغيل لصيدلية: ${inst.pharmacyName}\n🔗 الرابط المباشر:\n${url}\n\n👤 اسم المستخدم: ${inst.username || 'admin'}\n🔑 كلمة المرور: ${inst.password || '123456'}\n🛡️ كود النسخة: ${inst.code}${cloudInfo}`;
     navigator.clipboard.writeText(text);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
@@ -313,7 +415,19 @@ export function PharmacyInstanceManagerModal({
             }`}
           >
             <Info className="w-4 h-4" />
-            طرق واستراتيجيات العزل التام
+            طرق واستراتيجيات العزل
+          </button>
+
+          <button
+            onClick={() => setActiveTab('supabase')}
+            className={`py-3 px-4 font-semibold text-sm border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'supabase'
+                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/50 dark:bg-emerald-950/20'
+                : 'border-transparent text-emerald-700 dark:text-emerald-400 hover:text-emerald-800'
+            }`}
+          >
+            <Database className="w-4 h-4 text-emerald-500" />
+            <span>سيرفر Supabase لكل صيدلية ⚡</span>
           </button>
         </div>
 
@@ -466,7 +580,7 @@ export function PharmacyInstanceManagerModal({
 
                     <button
                       onClick={handleOpenEditCredentials}
-                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition"
+                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition"
                     >
                       تعديل
                     </button>
@@ -561,6 +675,60 @@ export function PharmacyInstanceManagerModal({
                       </div>
                     </div>
                   </form>
+                )}
+              </div>
+
+              {/* Dedicated Supabase Server for Current Instance */}
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Database className="w-4 h-4 text-emerald-600" />
+                      <span>سيرفر Supabase السحابي المخصص لهذه الصيدلية</span>
+                      {currentInstance.supabaseConfig?.url ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                          ✓ متصل ومفعل
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          وضع محلي (أوفلاين)
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      يربط أجهزة وهواتف هذه الصيدلية بقاعدة بيانات PostgreSQL خاصة ومستقلة 100%
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleOpenConfigureSupabase(currentInstance)}
+                      className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition self-start sm:self-center"
+                    >
+                      <Database className="w-4 h-4 text-emerald-600" />
+                      {currentInstance.supabaseConfig?.url
+                        ? 'تعديل / فحص السيرفر'
+                        : 'ربط سيرفر سحابي خاص'}
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab('supabase')}
+                      className="px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750 rounded-xl transition"
+                    >
+                      دليل الإعداد 📖
+                    </button>
+                  </div>
+                </div>
+
+                {currentInstance.supabaseConfig?.url && (
+                  <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/60 text-xs flex items-center justify-between gap-2">
+                    <div className="font-mono text-emerald-900 dark:text-emerald-200 truncate" dir="ltr">
+                      {currentInstance.supabaseConfig.url}
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-800 font-bold text-emerald-950 dark:text-emerald-100 shrink-0">
+                      قاعدة بيانات معزولة
+                    </span>
+                  </div>
                 )}
               </div>
 
@@ -777,6 +945,63 @@ export function PharmacyInstanceManagerModal({
                 </p>
               </div>
 
+              {/* Optional Supabase Cloud Server for New Instance */}
+              <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Database className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      سيرفر Supabase سحابي مخصص لهذه الصيدلية (اختياري)
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300 font-bold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showFormSupabase}
+                      onChange={e => setShowFormSupabase(e.target.checked)}
+                      className="rounded text-emerald-600"
+                    />
+                    <span>تخصيص سيرفر سحابي خاص الآن</span>
+                  </label>
+                </div>
+
+                <p className="text-[11px] text-emerald-900/80 dark:text-emerald-300/80">
+                  ⚡ يمكنك ترك هذا الخيار مغلقاً لتعمل الصيدلية محلياً، أو إدخال رابط ومفتاح مشروع Supabase الخاص بها لعزل بياناتها سحابياً 100%.
+                </p>
+
+                {showFormSupabase && (
+                  <div className="grid grid-cols-1 gap-3 pt-2">
+                    <div>
+                      <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1 text-xs">
+                        رابط مشروع Supabase الخاص بالصيدلية (Project URL)
+                      </label>
+                      <input
+                        type="text"
+                        value={formSupabaseUrl}
+                        onChange={e => setFormSupabaseUrl(e.target.value)}
+                        placeholder="https://abcdefghijkl.supabase.co"
+                        dir="ltr"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-xs focus:border-emerald-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1 text-xs">
+                        المفتاح العام (anon public API key)
+                      </label>
+                      <input
+                        type="text"
+                        value={formSupabaseAnonKey}
+                        onChange={e => setFormSupabaseAnonKey(e.target.value)}
+                        placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        dir="ltr"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-xs focus:border-emerald-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Data Initialization Choice */}
               <div className="space-y-2 pt-2">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -928,11 +1153,32 @@ export function PharmacyInstanceManagerModal({
                                 <span>{inst.username || 'admin'}</span>
                               </span>
                             )}
+                            {/* Supabase status badge */}
+                            {inst.supabaseConfig?.url ? (
+                              <span className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1">
+                                <Database className="w-3 h-3 text-emerald-500" />
+                                <span>سيرفر Supabase خاص</span>
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <HardDrive className="w-3 h-3" />
+                                <span>وضع محلي</span>
+                              </span>
+                            )}
                           </div>
                         </div>
 
                         {/* Action buttons */}
                         <div className="flex items-center gap-2 flex-wrap self-end sm:self-center">
+                          <button
+                            onClick={() => handleOpenConfigureSupabase(inst)}
+                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                            title="إعداد أو ربط سيرفر Supabase السحابي لهذه الصيدلية"
+                          >
+                            <Database className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">سيرفر Supabase</span>
+                          </button>
+
                           {!isActive ? (
                             <button
                               onClick={() => handleSwitchInstance(inst.id)}
@@ -1135,6 +1381,281 @@ export function PharmacyInstanceManagerModal({
             </div>
           )}
 
+          {/* TAB 5: DEDICATED SUPABASE SERVER PER PHARMACY GUIDE */}
+          {activeTab === 'supabase' && (
+            <div className="space-y-6 text-sm">
+              {/* Hero Banner */}
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-900 via-teal-950 to-slate-900 text-white border border-emerald-700/60 shadow-xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1.5">
+                    <Cloud className="w-3.5 h-3.5" />
+                    العزل السحابي الكامل 100% • Physical Multi-Tenancy
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-white flex items-center gap-2">
+                  <span>⚡ كيف تجعل لكل صيدلية سيرفر Supabase لوحدها؟</span>
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                  في نظام <strong>فارما برو</strong>، صممنا البنية التحتية لتدعم عزل قواعد البيانات السحابية بالكامل.
+                  بدلاً من مشاركة قاعدة بيانات واحدة بين كل الصيدليات، يمكنك إنشاء <strong>مشروع سحابي مجاني ومستقل على Supabase لكل صيدلية تبيعها البرنامج</strong>.
+                  بهذه الطريقة، تملك كل صيدلية سيرفر PostgreSQL خاصاً بها حصراً ولا تتداخل بياناتها أو فواتيرها مع أي صيدلية أخرى على الإطلاق.
+                </p>
+
+                <div className="flex items-center gap-3 pt-2 flex-wrap">
+                  <a
+                    href="https://supabase.com/dashboard"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md transition"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>فتح موقع Supabase وإنشاء مشروع</span>
+                  </a>
+
+                  <button
+                    onClick={handleCopySql}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold rounded-xl text-xs flex items-center gap-1.5 transition"
+                  >
+                    {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedSql ? 'تم نسخ كود الـ SQL!' : 'نسخ كود إنشاء الجداول (SQL)'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('list')}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-emerald-300 border border-white/10 font-bold rounded-xl text-xs flex items-center gap-1.5 transition"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>الانتقال لربط الصيدليات المسجلة</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Core Benefits */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-4 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center font-bold">
+                    🛡️
+                  </div>
+                  <h5 className="font-bold text-slate-900 dark:text-white text-xs">أمان وخصوصية 100%</h5>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                    قاعدة بيانات منفصلة فيزيائياً تمنع منعاً باتاً وصول أي صيدلية لأرقام أو فواتير صيدلية أخرى.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-950/60 text-cyan-600 flex items-center justify-center font-bold">
+                    ⚡
+                  </div>
+                  <h5 className="font-bold text-slate-900 dark:text-white text-xs">مزامنة فورية Real-time</h5>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                    كمبيوتر الكاشير بالصيدلية وهواتف الصيادلة والمخزن يتزامنون في أجزاء من الثانية.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center font-bold">
+                    💰
+                  </div>
+                  <h5 className="font-bold text-slate-900 dark:text-white text-xs">مجاني بالكامل</h5>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                    يقدم Supabase خطة مجانية (Free Tier) سخية جداً تكفي آلاف الأدوية والفواتير لكل صيدلية.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center font-bold">
+                    🚀
+                  </div>
+                  <h5 className="font-bold text-slate-900 dark:text-white text-xs">ربط تلقائي 1-Click</h5>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                    الصيدلية تفتح الرابط الخاص بها فيتصل هاتفهم وحاسوبهم بسيرفرهم تلقائياً دون إدخال أي مفاتيح.
+                  </p>
+                </div>
+              </div>
+
+              {/* 5-Step Practical Guide */}
+              <div className="space-y-4">
+                <h4 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                  <span>📋 الخطوات العملية التفصيلية (خطوة بخطوة):</span>
+                </h4>
+
+                {/* Step 1 */}
+                <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                        1
+                      </span>
+                      <h5 className="font-bold text-slate-900 dark:text-white">
+                        إنشاء مشروع جديد في موقع Supabase باسم الصيدلية
+                      </h5>
+                    </div>
+                    <a
+                      href="https://supabase.com/dashboard"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                    >
+                      <span>فتح Supabase</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400 pr-10 leading-relaxed">
+                    1. ادخل إلى <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-emerald-600 font-bold underline">supabase.com</a> وسجل دخولك (يمكنك استخدام نفس حساب GitHub أو الإيميل).
+                    <br />
+                    2. اضغط على زر <strong>"New Project"</strong>.
+                    <br />
+                    3. في حقل <strong>Name</strong>، اكتب اسم الصيدلية (مثلاً: <code>pharma-alamal</code> لصيدلية الأمل، أو <code>pharma-alnoor</code> لصيدلية النور).
+                    <br />
+                    4. اكتب كلمة سر لقاعدة البيانات (Database Password) واحفظها عندك، واختر أقرب منطقة (مثلاً <code>Frankfurt - eu-central-1</code>).
+                    <br />
+                    5. اضغط <strong>Create project</strong> وانتظر دقيقة واحدة حتى ينتهي تجهيز السيرفر.
+                  </p>
+                </div>
+
+                {/* Step 2 */}
+                <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                        2
+                      </span>
+                      <h5 className="font-bold text-slate-900 dark:text-white">
+                        بناء جداول نظام فارما برو بضغطة زر واحدة (SQL Script)
+                      </h5>
+                    </div>
+
+                    <button
+                      onClick={handleCopySql}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+                    >
+                      {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedSql ? 'تم النسخ بنجاح!' : 'نسخ كود الـ SQL'}</span>
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400 pr-10 leading-relaxed">
+                    1. من القائمة اليسرى في مشروع Supabase الجديد، اضغط على أيقونة <strong>SQL Editor</strong> (أيقونة <code>&gt;_</code>).
+                    <br />
+                    2. اضغط على زر <strong>"New query"</strong>.
+                    <br />
+                    3. انسخ كود الـ SQL بالزر الأخضر أعلاه، ثم الصقه في الشاشة.
+                    <br />
+                    4. اضغط على زر <strong>Run</strong> الأخضر (أو اضغط <code>Ctrl + Enter</code>).
+                    <br />
+                    خلال ثانيتين ستظهر رسالة <code>Success. No rows returned</code> وتكون جميع جداول الصيدلية (الأدوية، الفواتير، الحسابات، الإعدادات) قد أُنشئت بنجاح!
+                  </p>
+
+                  <div className="pr-10">
+                    <div className="p-3 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-600 dark:text-slate-400">
+                        💡 إذا ظهر تنبيه متعلق بحماية Row-Level Security لاحقاً، يمكنك أيضاً نسخ كود الأمان وتطبيقه:
+                      </span>
+                      <button
+                        onClick={handleCopyRlsFixSql}
+                        className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-800 dark:text-slate-200 rounded text-xs font-bold shrink-0 transition"
+                      >
+                        {copiedRlsSql ? '✓ تم النسخ' : 'نسخ كود حماية RLS'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                      3
+                    </span>
+                    <h5 className="font-bold text-slate-900 dark:text-white">
+                      استخراج رابط ومفتاح المشروع (Project URL & Anon Key)
+                    </h5>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400 pr-10 leading-relaxed">
+                    1. في موقع Supabase، انظر إلى أسفل القائمة اليسرى واضغط على أيقونة الترس ⚙️ <strong>(Project Settings)</strong>.
+                    <br />
+                    2. اختر من القائمة تبويب <strong>"API"</strong>.
+                    <br />
+                    3. ستجد هناك قيمتين أساسيتين:
+                    <br />
+                    • <strong>Project URL</strong>: رابط يشبه <code>https://abcdefghijkl.supabase.co</code> (انسخه).
+                    <br />
+                    • <strong>Project API keys &rarr; anon (public)</strong>: المفتاح العام الطويل (انسخه).
+                  </p>
+                </div>
+
+                {/* Step 4 */}
+                <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                        4
+                      </span>
+                      <h5 className="font-bold text-slate-900 dark:text-white">
+                        ربط الصيدلية في هذا البرنامج بنقرة واحدة
+                      </h5>
+                    </div>
+
+                    <button
+                      onClick={() => setActiveTab('list')}
+                      className="px-3 py-1.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-lg text-xs font-bold hover:bg-emerald-100 transition"
+                    >
+                      الذهاب لقائمة الصيدليات ↗
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400 pr-10 leading-relaxed">
+                    1. انتقل إلى تبويب <strong>"قائمة النسخ المحفوظة"</strong> هنا.
+                    <br />
+                    2. اضغط على زر <strong>"سيرفر Supabase"</strong> بجانب الصيدلية التي تريد ربطها (أو أدخلها أثناء إنشاء صيدلية جديدة).
+                    <br />
+                    3. الصق الـ Project URL والـ anon key واضغط <strong>"فحص الاتصال"</strong> ثم <strong>"حفظ الإعدادات"</strong>.
+                    <br />
+                    مبروك! أصبحت هذه الصيدلية مربوطة حصراً بسيرفرها الخاص.
+                  </p>
+                </div>
+
+                {/* Step 5 */}
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/70 to-blue-50/70 dark:from-indigo-950/30 dark:to-blue-950/30 border border-indigo-200 dark:border-indigo-800 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <span className="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                      5
+                    </span>
+                    <h5 className="font-bold text-slate-900 dark:text-white">
+                      تسليم الرابط المباشر أو الـ QR للصيدلية
+                    </h5>
+                  </div>
+
+                  <p className="text-xs text-slate-700 dark:text-slate-300 pr-10 leading-relaxed">
+                    اضغط على <strong>"نسخ الرابط والبيانات"</strong> أو <strong>"عرض الباركود QR"</strong> بجانب الصيدلية وأرسله للمالك.
+                    <br />
+                    الرابط المنسوخ يحتوي تلقائياً على كود الصيدلية + مفاتيح السيرفر السحابي،
+                    لذلك بمجرد أن يفتح الصيدلي الرابط على كمبيوتر الكاشير أو يمسح الباركود بهاتف الآيفون،
+                    يتصل جهازه فوراً بسيرفر Supabase الخاص بصيدليته دون الحاجة لطلب أي مفاتيح منه!
+                  </p>
+                </div>
+              </div>
+
+              {/* Vercel Standalone option */}
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                <h5 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 text-xs">
+                  <span>🚀 خيار متقدم إضافي: رفع مشروع منفصل على Vercel لكل صيدلية</span>
+                </h5>
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  إذا أردت أن تمتلك كل صيدلية رابط Vercel مستقلاً تماماً (مثلاً: <code>https://amal-pharmacy.vercel.app</code> و <code>https://noor-pharmacy.vercel.app</code>):
+                  <br />
+                  يمكنك في Vercel الضغط على <strong>"Add New Project"</strong> لنفس كود الـ GitHub، ووضع متغيرات البيئة الخاصة بـ Supabase لكل مشروع في قسم <strong>Settings &rarr; Environment Variables</strong>:
+                  <br />
+                  • <code>VITE_SUPABASE_URL</code>: رابط مشروع Supabase الخاص بتلك الصيدلية.
+                  <br />
+                  • <code>VITE_SUPABASE_ANON_KEY</code>: مفتاح anon الخاص بها.
+                </p>
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Modal Footer */}
@@ -1175,24 +1696,163 @@ export function PharmacyInstanceManagerModal({
 
             <div className="flex justify-center p-3 bg-white rounded-xl border border-slate-200 shadow-inner">
               <QRCodeDisplay
-                value={InstanceService.buildInstanceUrl(showQRForInstance.id)}
+                value={InstanceService.buildInstanceUrlWithSync(showQRForInstance.id)}
                 size={220}
               />
             </div>
 
             <div className="text-xs font-mono text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg break-all" dir="ltr">
-              {InstanceService.buildInstanceUrl(showQRForInstance.id)}
+              {InstanceService.buildInstanceUrlWithSync(showQRForInstance.id)}
             </div>
 
             <button
               onClick={() => {
-                handleCopyDirectLink(InstanceService.buildInstanceUrl(showQRForInstance.id));
+                handleCopyDirectLink(InstanceService.buildInstanceUrlWithSync(showQRForInstance.id));
               }}
               className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition"
             >
               <Copy className="w-4 h-4" />
               نسخ الرابط المباشر
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Supabase Configuration Modal for a specific pharmacy instance */}
+      {editingSupabaseInstance && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 flex items-center justify-center">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                    إعداد سيرفر Supabase لـ {editingSupabaseInstance.pharmacyName}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    كود النسخة: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{editingSupabaseInstance.code}</span>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setEditingSupabaseInstance(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              أدخل رابط ومفتاح مشروع Supabase الخاص بهذه الصيدلية لعزل قاعدة بياناتها السحابية 100%.
+            </p>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
+                  رابط المشروع السحابي (Project URL)
+                </label>
+                <input
+                  type="text"
+                  value={editSupabaseUrl}
+                  onChange={e => {
+                    setEditSupabaseUrl(e.target.value);
+                    const check = cleanAndValidateSupabaseUrl(e.target.value);
+                    if (check.isFixed && check.cleanedUrl) {
+                      setEditSupabaseUrl(check.cleanedUrl);
+                    }
+                  }}
+                  placeholder="https://abcdefghijkl.supabase.co"
+                  dir="ltr"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-xs focus:border-emerald-500 outline-none"
+                />
+                <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  تأخذه من: Project Settings &rarr; API &rarr; Project URL
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
+                  المفتاح العام (anon public key)
+                </label>
+                <input
+                  type="text"
+                  value={editSupabaseAnonKey}
+                  onChange={e => setEditSupabaseAnonKey(e.target.value)}
+                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  dir="ltr"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-xs focus:border-emerald-500 outline-none"
+                />
+                <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  تأخذه من: Project Settings &rarr; API &rarr; Project API keys &rarr; anon (public)
+                </span>
+              </div>
+            </div>
+
+            {/* Test result message */}
+            {editSupabaseTestResult && (
+              <div
+                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                  editSupabaseTestResult.success
+                    ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200'
+                    : 'bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200'
+                }`}
+              >
+                {editSupabaseTestResult.success ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                )}
+                <span>{editSupabaseTestResult.message}</span>
+              </div>
+            )}
+
+            {editSupabaseSuccess && (
+              <div className="p-3 rounded-xl text-xs bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>{editSupabaseSuccess}</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handleTestSupabaseForInstance}
+                disabled={editSupabaseTesting}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-200 text-xs font-bold transition flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${editSupabaseTesting ? 'animate-spin' : ''}`} />
+                <span>{editSupabaseTesting ? 'جاري الفحص...' : 'فحص الاتصال'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveSupabaseForInstance}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-md shadow-emerald-600/30 flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>حفظ وتفعيل السيرفر</span>
+              </button>
+
+              {editingSupabaseInstance.supabaseConfig?.url && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('هل تريد فصل سيرفر Supabase والعودة للوضع المحلي لهذه الصيدلية؟')) {
+                      InstanceService.updateInstanceSupabase(editingSupabaseInstance.id, undefined);
+                      loadInstances();
+                      setEditingSupabaseInstance(null);
+                    }
+                  }}
+                  className="p-2.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
+                  title="فصل السيرفر والعودة للوضع المحلي"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

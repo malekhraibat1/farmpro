@@ -181,7 +181,7 @@ export const InstanceLoginModal: React.FC<InstanceLoginModalProps> = ({
 
           {/* Master recovery info */}
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 text-center leading-relaxed">
-            نسيت كلمة المرور؟ يمكنك الدخول برمز السوبر أدمن الرئيسي <code>7777</code> أو التواصل مع المهندس المطور <b>مالك حريبات 0594345464</b>
+            نسيت كلمة المرور؟ يرجى التواصل مع المهندس المطور <b>مالك حريبات 0594345464</b>
           </div>
         </div>
       </div>

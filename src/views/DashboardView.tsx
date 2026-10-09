@@ -101,14 +101,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="absolute top-0 left-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-cyan-200 mb-2 border border-white/10">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>النظام متزامن ومحمي • تصميم المهندس مالك حريبات</span>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-cyan-200 border border-white/10">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>النظام متزامن ومحمي • تصميم المهندس مالك حريبات</span>
+              </div>
+              <span className="text-xs font-black px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/30">
+                لوحة التحكم الرئيسية
+              </span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black">
               أهلاً بك في {settings.pharmacyName}
             </h2>
-            <p className="text-sm text-cyan-100/80 mt-1 max-w-xl">
+            <p className="text-sm text-cyan-100 font-medium mt-1 max-w-xl">
               لوحة التحكم المحاسبية المباشرة لإدارة الصيدلية، كشوفات حسابات الشركات والصيدليات الزميلة، وحركات البيع.
             </p>
           </div>
@@ -145,10 +150,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="text-xl sm:text-2xl font-black font-mono text-slate-900">
             {todaySalesTotal.toLocaleString()} {settings.currency}
           </div>
-          <div className="text-[11px] text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
-            <span>أرباح تقديرية:</span>
-            <span className="font-mono">+{todayProfit.toFixed(1)} {settings.currency}</span>
-          </div>
+          {currentRole !== 'pharmacist' ? (
+            <div className="text-[11px] text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
+              <span>أرباح تقديرية:</span>
+              <span className="font-mono">+{todayProfit.toFixed(1)} {settings.currency}</span>
+            </div>
+          ) : (
+            <div className="text-[11px] text-slate-500 font-bold mt-1.5 flex items-center gap-1">
+              <span>حالة الكاشير:</span>
+              <span className="text-emerald-700">نشط وجاهز للبيع ✓</span>
+            </div>
+          )}
         </div>
 
         {/* Receivables: ديون لنا عند الصيدليات والزبائن */}

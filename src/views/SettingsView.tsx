@@ -262,9 +262,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <button
               type="button"
               onClick={onOpenInstanceManager}
-              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-teal-400 to-emerald-500 hover:from-teal-300 hover:to-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-teal-500/25 active:scale-95 transition-all shrink-0 flex items-center gap-2"
+              className="px-5 py-2.5 rounded-2xl bg-white hover:bg-teal-50 text-teal-950 font-black text-xs shadow-lg active:scale-95 transition-all shrink-0 flex items-center gap-2"
             >
-              <Building2 className="w-4 h-4" />
+              <Building2 className="w-4 h-4 text-teal-600" />
               <span>إدارة وتخصيص نسخ الصيدليات 🏢</span>
             </button>
           )}
@@ -329,9 +329,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <button
               type="button"
               onClick={onOpenDeviceSync}
-              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition-all shrink-0 flex items-center gap-2"
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-black text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition-all shrink-0 flex items-center gap-2"
             >
-              <QrCode className="w-4 h-4" />
+              <QrCode className="w-4 h-4 text-cyan-200" />
               <span>فتح مركز ربط الأجهزة ومسح الـ QR ⚡</span>
             </button>
           )}
@@ -580,7 +580,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <button
                   type="button"
                   onClick={onOpenSupabaseSync}
-                  className="px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-md transition-all shrink-0"
+                  className="px-5 py-2.5 rounded-2xl bg-white hover:bg-emerald-50 text-emerald-950 font-black text-xs shadow-md active:scale-95 transition-all shrink-0"
                 >
                   إعدادات ورفع البيانات إلى Supabase
                 </button>

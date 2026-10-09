@@ -50,6 +50,7 @@ export const POSView: React.FC<POSViewProps> = ({
   const [notes, setNotes] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [completedInvoice, setCompletedInvoice] = useState<SaleInvoice | null>(null);
+  const [stockWarning, setStockWarning] = useState<string | null>(null);
 
   // Filter medicines for selection
   const filteredMeds = medicines.filter(m => {
@@ -64,9 +65,17 @@ export const POSView: React.FC<POSViewProps> = ({
 
   // Cart operations
   const addToCart = (med: Medicine) => {
+    if (med.stockQuantity <= 0) {
+      setStockWarning(`تنبيه: الصنف "${med.tradeName}" رصيده في المستودع 0.`);
+      setTimeout(() => setStockWarning(null), 4000);
+    }
     setCart(prev => {
       const existing = prev.find(item => item.medicineId === med.id);
       if (existing) {
+        if (existing.quantity + 1 > med.stockQuantity) {
+          setStockWarning(`تنبيه: الكمية المطلوبة من "${med.tradeName}" تتجاوز المخزون الحالي (${med.stockQuantity}).`);
+          setTimeout(() => setStockWarning(null), 4000);
+        }
         return prev.map(item =>
           item.medicineId === med.id
             ? {
@@ -145,7 +154,7 @@ export const POSView: React.FC<POSViewProps> = ({
 
   const handleFinishSale = (e: React.FormEvent) => {
     e.preventDefault();
-    const paid = parseFloat(paidInput) || 0;
+    const paid = Math.max(0, parseFloat(paidInput) || 0);
     const remaining = Math.max(0, finalAmount - paid);
 
     const now = new Date();
@@ -204,6 +213,14 @@ export const POSView: React.FC<POSViewProps> = ({
           </button>
         )}
       </div>
+
+      {/* Stock warning notification */}
+      {stockWarning && (
+        <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>{stockWarning}</span>
+        </div>
+      )}
 
       {/* Grid: Left side Cart, Right side Medicine search & catalog */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">

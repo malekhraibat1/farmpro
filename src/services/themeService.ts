@@ -1,4 +1,5 @@
 export type ThemeId = 
+  | 'pure_clarity'
   | 'ultra_contrast'
   | 'crisp_classic'
   | 'emerald' 
@@ -30,6 +31,23 @@ export interface ThemeDefinition {
 }
 
 export const AVAILABLE_THEMES: ThemeDefinition[] = [
+  {
+    id: 'pure_clarity',
+    name: 'الوضوح الكريستالي الفائق (Crystal Pure Clarity 💎)',
+    nameEn: 'Crystal Pure Clarity',
+    description: 'خطوط سوداء داكنة وحادة 100%، ألوان ناصعة ومتباينة، وتنبيهات كريستالية واضحة (أخضر ساطع للدفع، أحمر للديون، وبرتقالي للنواقص) مع أزرار بارزة غير قابلة للاختفاء',
+    isDark: false,
+    isHighContrast: true,
+    primaryColor: '#0284c7',
+    secondaryColor: '#0f172a',
+    accentGradient: 'from-slate-950 via-sky-950 to-blue-900',
+    primaryBtnClass: 'bg-sky-700 hover:bg-sky-800 text-white font-black shadow-md border-2 border-sky-800',
+    headerBgClass: 'bg-white border-b-2 border-sky-900/60 shadow-xs',
+    cardBorderClass: 'border-2 border-slate-300 shadow-sm',
+    activeTabClass: 'bg-sky-800 text-white font-black shadow-md border border-sky-900',
+    badgeClass: 'bg-sky-50 text-sky-950 border-2 border-sky-600 font-black',
+    previewColors: ['#0284c7', '#ffffff', '#0f172a'],
+  },
   {
     id: 'ultra_contrast',
     name: 'التباين العالي فائق الوضوح (Ultra Clear)',
@@ -185,7 +203,7 @@ export const AVAILABLE_THEMES: ThemeDefinition[] = [
     primaryColor: '#06b6d4',
     secondaryColor: '#3b82f6',
     accentGradient: 'from-slate-900 via-slate-800 to-cyan-950',
-    primaryBtnClass: 'bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black shadow-cyan-600/30',
+    primaryBtnClass: 'bg-cyan-600 hover:bg-cyan-500 text-white font-bold shadow-cyan-600/30',
     headerBgClass: 'bg-slate-900/95 border-slate-800 text-slate-100',
     cardBorderClass: 'border-slate-800',
     activeTabClass: 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-cyan-500/20',
@@ -201,10 +219,10 @@ export const AVAILABLE_THEMES: ThemeDefinition[] = [
     primaryColor: '#38bdf8',
     secondaryColor: '#a855f7',
     accentGradient: 'from-cyan-950 via-slate-900 to-purple-950',
-    primaryBtnClass: 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-cyan-500/25',
+    primaryBtnClass: 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-cyan-500/25',
     headerBgClass: 'bg-slate-950/95 border-cyan-900/50 text-white',
     cardBorderClass: 'border-cyan-900/40',
-    activeTabClass: 'bg-gradient-to-r from-cyan-500 to-purple-600 text-slate-950 font-black shadow-cyan-500/30',
+    activeTabClass: 'bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-bold shadow-cyan-500/30',
     badgeClass: 'bg-cyan-950 text-cyan-300 border-cyan-500/40',
     previewColors: ['#030712', '#0ea5e9', '#a855f7'],
   },
@@ -225,7 +243,7 @@ export class ThemeService {
     } catch (e) {
       console.warn('Could not read theme from localStorage:', e);
     }
-    return 'ultra_contrast'; // Default to ultra_contrast for maximum clarity!
+    return 'pure_clarity'; // Premier ultra-crisp readable theme by default
   }
 
   static isContrastBoost(): boolean {

@@ -18,13 +18,14 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
-import { Entity, EntityType, FinancialTransaction, AppSettings, TransactionType } from '../types';
+import { Entity, EntityType, FinancialTransaction, AppSettings, TransactionType, UserRole } from '../types';
 import { EntityLedgerModal } from '../components/EntityLedgerModal';
 
 interface EntitiesViewProps {
   entities: Entity[];
   transactions: FinancialTransaction[];
   settings: AppSettings;
+  currentRole?: UserRole;
   onAddEntity: (newEntity: Omit<Entity, 'id' | 'createdAt'>) => void;
   onAddTransaction: (
     entityId: string,
@@ -43,6 +44,7 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
   entities,
   transactions,
   settings,
+  currentRole = 'admin',
   onAddEntity,
   onAddTransaction,
   selectedEntityForLedger,
@@ -612,6 +614,7 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
           entity={currentLedger}
           transactions={transactions}
           settings={settings}
+          currentRole={currentRole}
           onAddTransaction={onAddTransaction}
         />
       )}

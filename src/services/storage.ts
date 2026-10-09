@@ -6,6 +6,7 @@ import {
   Expense,
   AppSettings,
   LicenseInfo,
+  UserRole,
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -543,6 +544,18 @@ function getInstanceKey(baseKey: string, specificInstanceId?: string): string {
 }
 
 export class AppStorage {
+  static getCurrentRole(): UserRole {
+    const saved = safeGetItem(STORAGE_KEYS.CURRENT_ROLE);
+    if (saved === 'pharmacist' || saved === 'admin' || saved === 'super_admin' || saved === 'accountant') {
+      return saved as UserRole;
+    }
+    return 'pharmacist'; // Standard secure default for normal daily operation
+  }
+
+  static setCurrentRole(role: UserRole): void {
+    safeSetItem(STORAGE_KEYS.CURRENT_ROLE, role);
+  }
+
   static getActiveInstanceId(): string {
     return safeGetItem('pharma_active_instance_id_v1') || 'default';
   }

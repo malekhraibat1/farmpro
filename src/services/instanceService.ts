@@ -27,6 +27,8 @@ export interface PharmacyInstance {
 const INSTANCES_LIST_KEY = 'pharma_registered_instances_v1';
 const ACTIVE_INSTANCE_KEY = 'pharma_active_instance_id_v1';
 const SESSION_AUTH_PREFIX = 'pharma_auth_session_';
+// In-memory session tracking for instant check and testing environments
+const inMemorySessionMap: Record<string, boolean> = {};
 
 export const DEFAULT_INSTANCE: PharmacyInstance = {
   id: 'default',
@@ -40,15 +42,22 @@ export const DEFAULT_INSTANCE: PharmacyInstance = {
   notes: 'النسخة الأصلية المعتمدة - المقر الرئيسي',
   createdAt: '2026-10-01T00:00:00.000Z',
   lastActiveAt: new Date().toISOString(),
-  username: 'admin',
-  password: '123',
+  username: '', // إزالة admin الافتراضي
+  password: '', // إزالة 123 الافتراضي
   isProtected: false,
 };
 
+const inMemoryInstanceStorage: Record<string, string> = {};
+
 function safeGet(key: string): string | null {
+  if (inMemoryInstanceStorage[key] !== undefined) {
+    return inMemoryInstanceStorage[key];
+  }
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage.getItem(key);
+      const val = window.localStorage.getItem(key);
+      if (val !== null) inMemoryInstanceStorage[key] = val;
+      return val;
     }
   } catch (e) {
     console.warn('localStorage read error:', e);
@@ -57,6 +66,7 @@ function safeGet(key: string): string | null {
 }
 
 function safeSet(key: string, val: string): void {
+  inMemoryInstanceStorage[key] = val;
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(key, val);
@@ -141,6 +151,9 @@ export class InstanceService {
     if (!inst || !inst.isProtected || !inst.password) {
       return true; // No password protection enabled
     }
+    if (inMemorySessionMap[instanceId]) {
+      return true;
+    }
     try {
       if (typeof window !== 'undefined' && window.sessionStorage) {
         return window.sessionStorage.getItem(SESSION_AUTH_PREFIX + instanceId) === 'true';
@@ -156,18 +169,21 @@ export class InstanceService {
     const inst = this.getInstanceById(instanceId) || (instanceId === 'default' ? DEFAULT_INSTANCE : undefined);
     if (!inst) return false;
 
-    const expectedUser = (inst.username || 'admin').trim().toLowerCase();
-    const expectedPass = (inst.password || '123').trim();
+    // لا توجد كلمات مرور افتراضية مثل 123 أو تجاوزات سرية
+    const expectedUser = (inst.username || '').trim().toLowerCase();
+    const expectedPass = (inst.password || '').trim();
     const inputUser = usernameInput.trim().toLowerCase();
     const inputPass = passwordInput.trim();
 
-    // Check credentials or master engineer recovery pin (7777 / 9999)
-    const isMatch =
-      (inputUser === expectedUser && inputPass === expectedPass) ||
-      inputPass === '7777' ||
-      inputPass === '9999';
+    if (!expectedPass) {
+      // إذا كانت الصيدلية غير محمية بكلمة مرور
+      return true;
+    }
+
+    const isMatch = (expectedUser ? inputUser === expectedUser : true) && inputPass === expectedPass;
 
     if (isMatch) {
+      inMemorySessionMap[instanceId] = true;
       try {
         if (typeof window !== 'undefined' && window.sessionStorage) {
           window.sessionStorage.setItem(SESSION_AUTH_PREFIX + instanceId, 'true');
@@ -182,6 +198,7 @@ export class InstanceService {
    * Logs out the instance session
    */
   static logoutInstance(instanceId: string): void {
+    inMemorySessionMap[instanceId] = false;
     try {
       if (typeof window !== 'undefined' && window.sessionStorage) {
         window.sessionStorage.removeItem(SESSION_AUTH_PREFIX + instanceId);
@@ -242,10 +259,10 @@ export class InstanceService {
       currency: params.currency?.trim() || '₪',
       createdAt: new Date().toISOString(),
       lastActiveAt: new Date().toISOString(),
-      pin: params.pin?.trim(),
-      username: params.username?.trim() || 'admin',
-      password: params.password?.trim() || '123456',
-      isProtected: params.isProtected !== undefined ? params.isProtected : true,
+      pin: params.pin?.trim() || '',
+      username: params.username?.trim() || '',
+      password: params.password?.trim() || '',
+      isProtected: params.isProtected !== undefined ? params.isProtected : false,
       supabaseConfig: params.supabaseConfig,
     };
 

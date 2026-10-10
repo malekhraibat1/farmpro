@@ -35,7 +35,7 @@ export const InstanceLoginModal: React.FC<InstanceLoginModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setUsername(activeInstance.username || 'admin');
+      setUsername(activeInstance.username || '');
       setPassword('');
       setErrorMsg('');
     }

@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { AppSettings, UserRole } from '../types';
 import { ThemeId, AVAILABLE_THEMES, ThemeService } from '../services/themeService';
+import { CryptoService } from '../services/cryptoService';
+import { AppStorage } from '../services/storage';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -65,7 +67,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [phone, setPhone] = useState(settings.phone);
   const [address, setAddress] = useState(settings.address);
   const [currency, setCurrency] = useState(settings.currency);
-  const [pincode, setPincode] = useState(settings.pincode);
+  const [pincode, setPincode] = useState(settings.pincode || '');
   const [isPinRequired, setIsPinRequired] = useState(settings.isPinRequired);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isContrastBoost, setIsContrastBoost] = useState<boolean>(() => ThemeService.isContrastBoost());
@@ -84,27 +86,66 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       phone: phone.trim(),
       address: address.trim(),
       currency: currency.trim(),
-      pincode: pincode.trim(),
+      pincode: (pincode || '').trim(),
       isPinRequired,
     });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
   };
 
-  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExportEncrypted = async () => {
+    const password = prompt(
+      'أدخل كلمة مرور لتشفير ملف النسخة الاحتياطية (أو اضغط موافق لتشفيره بالمفتاح المحلي):'
+    );
+    if (password === null) return;
+    try {
+      const raw = AppStorage.exportFullBackup();
+      const enc = await CryptoService.exportEncryptedBackup(raw, password || undefined);
+      const blob = new Blob([enc], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `نسخة_مشفرة_فارما_برو_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      alert('تم تصدير النسخة الاحتياطية المشفرة بنجاح 🔒');
+    } catch (e) {
+      alert('فشل تصدير النسخة المشفرة.');
+    }
+  };
+
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = event => {
+    reader.onload = async event => {
       const content = event.target?.result as string;
       if (content) {
-        const success = onImportBackup(content);
-        if (success) {
-          alert('تم استعادة النسخة الاحتياطية بنجاح!');
-          window.location.reload();
-        } else {
-          alert('حدث خطأ في قراءة ملف النسخة الاحتياطية.');
+        try {
+          let payloadToImport = content;
+          if (content.includes('FarmPro_Encrypted_Backup_v2') || content.startsWith('ENC_v1:')) {
+            let pw: string | undefined = undefined;
+            if (content.includes('FarmPro_Encrypted_Backup_v2')) {
+              pw = prompt('هذا الملف مشفر بكلمة مرور. يرجى إدخال كلمة المرور لفك التشفير:') || '';
+            }
+            const res = await CryptoService.importEncryptedBackup(content, pw);
+            if (!res) {
+              alert('فشل فك تشفير النسخة الاحتياطية. كلمة المرور قد تكون غير صحيحة.');
+              return;
+            }
+            payloadToImport = res;
+          }
+
+          const success = onImportBackup(payloadToImport);
+          if (success) {
+            alert('تم استعادة وفك تشفير النسخة الاحتياطية بنجاح!');
+            window.location.reload();
+          } else {
+            alert('حدث خطأ في قراءة ملف النسخة الاحتياطية.');
+          }
+        } catch (err) {
+          alert('خطأ أثناء معالجة ملف النسخة الاحتياطية.');
         }
       }
     };
@@ -495,8 +536,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              {/* Export */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+              {/* Plain Export */}
               <button
                 type="button"
                 onClick={onExportBackup}
@@ -506,10 +547,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span>تنزيل نسخة احتياطية (JSON)</span>
               </button>
 
+              {/* Encrypted Export */}
+              <button
+                type="button"
+                onClick={handleExportEncrypted}
+                className="p-4 rounded-2xl bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200 text-amber-950 font-bold transition-all flex flex-col items-center gap-2 text-center"
+              >
+                <Shield className="w-6 h-6 text-amber-600" />
+                <span>تصدير مشفر بكلمة سر 🔒</span>
+              </button>
+
               {/* Import */}
               <label className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold transition-all flex flex-col items-center gap-2 text-center cursor-pointer">
                 <Upload className="w-6 h-6 text-indigo-600" />
-                <span>استعادة نسخة احتياطية</span>
+                <span>استعادة نسخة (عادية أو مشفرة)</span>
                 <input
                   type="file"
                   accept=".json"

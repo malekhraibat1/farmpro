@@ -89,8 +89,8 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
   const [address, setAddress] = useState(settings.address);
   const [currency, setCurrency] = useState(settings.currency);
   const [taxRate, setTaxRate] = useState(settings.taxRate.toString());
-  const [pincode, setPincode] = useState(settings.pincode);
-  const [superAdminPin, setSuperAdminPin] = useState(settings.superAdminPin || '7777');
+  const [pincode, setPincode] = useState(settings.pincode || '');
+  const [superAdminPin, setSuperAdminPin] = useState(settings.superAdminPin || '');
   const [infoSaved, setInfoSaved] = useState(false);
 
   // Provision New Pharmacy Copy Form
@@ -160,8 +160,8 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
       address: address.trim(),
       currency: currency.trim(),
       taxRate: parseFloat(taxRate) || 0,
-      pincode: pincode.trim(),
-      superAdminPin: superAdminPin.trim(),
+      pincode: (pincode || '').trim(),
+      superAdminPin: (superAdminPin || '').trim(),
     });
 
     setInfoSaved(true);

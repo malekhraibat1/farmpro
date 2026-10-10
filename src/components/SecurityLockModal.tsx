@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { Lock, Unlock, KeyRound, ShieldAlert, UserCheck, Delete, Sparkles, ShieldCheck } from 'lucide-react';
 import { UserRole } from '../types';
+import { CryptoService } from '../services/cryptoService';
 
 interface SecurityLockModalProps {
   isOpen: boolean;
   onUnlock: () => void;
   currentRole: UserRole;
   onRoleChange: (role: UserRole) => void;
-  correctPin: string;
+  correctPin?: string;
+  pincodeHash?: string;
+  pincodeSalt?: string;
   superAdminPin?: string;
+  superAdminPinHash?: string;
+  superAdminPinSalt?: string;
   onOpenSuperAdminDirectly?: () => void;
 }
 
@@ -17,8 +22,12 @@ export const SecurityLockModal: React.FC<SecurityLockModalProps> = ({
   onUnlock,
   currentRole,
   onRoleChange,
-  correctPin,
-  superAdminPin = '7777',
+  correctPin = '',
+  pincodeHash = '',
+  pincodeSalt = '',
+  superAdminPin = '',
+  superAdminPinHash = '',
+  superAdminPinSalt = '',
   onOpenSuperAdminDirectly,
 }) => {
   const [pin, setPin] = useState('');
@@ -27,14 +36,21 @@ export const SecurityLockModal: React.FC<SecurityLockModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleDigit = (digit: string) => {
-    if (pin.length < 6) {
+  const handleDigit = async (digit: string) => {
+    if (pin.length < 8) {
       const next = pin + digit;
       setPin(next);
       setError(false);
 
-      // Check if Super Admin pin matches (7777 or 9999 or custom superAdminPin)
-      if (next === superAdminPin || next === '7777' || next === '9999') {
+      // 1. فحص رمز السوبر أدمن (عبر Hash أو النص المخصص فقط، دون أي رموز افتراضية)
+      let isSuperMatch = false;
+      if (superAdminPinHash && superAdminPinSalt) {
+        isSuperMatch = await CryptoService.verifySecret(next, superAdminPinHash, superAdminPinSalt);
+      } else if (superAdminPin && superAdminPin.trim()) {
+        isSuperMatch = next === superAdminPin.trim();
+      }
+
+      if (isSuperMatch) {
         onRoleChange('super_admin');
         onUnlock();
         if (onOpenSuperAdminDirectly) onOpenSuperAdminDirectly();
@@ -42,12 +58,23 @@ export const SecurityLockModal: React.FC<SecurityLockModalProps> = ({
         return;
       }
 
-      // Check standard pin
-      if (next === correctPin) {
+      // 2. فحص رمز الـ PIN العادي للمدير (عبر Hash المشفر)
+      let isPinMatch = false;
+      if (pincodeHash && pincodeSalt) {
+        isPinMatch = await CryptoService.verifySecret(next, pincodeHash, pincodeSalt);
+      } else if (correctPin && correctPin.trim()) {
+        isPinMatch = next === correctPin.trim();
+      }
+
+      if (isPinMatch) {
         onRoleChange(selectedRole === 'super_admin' ? 'admin' : selectedRole);
         onUnlock();
         setPin('');
-      } else if (next.length >= Math.max(correctPin.length, 4) && next !== correctPin && next !== superAdminPin && next !== '7777' && next !== '9999') {
+        return;
+      }
+
+      // إذا تجاوز الطول 6 خانات ولم يطابق
+      if (next.length >= 6) {
         setError(true);
         setTimeout(() => {
           setPin('');

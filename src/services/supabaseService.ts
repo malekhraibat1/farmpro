@@ -753,4 +753,109 @@ export class SupabaseService {
       return { success: false, message: e.message || 'فشل جلب البيانات من Supabase.' };
     }
   }
+
+  // ========================================================
+  // SUPABASE REAL AUTHENTICATION & JWT ROLE ENFORCEMENT
+  // ========================================================
+
+  /**
+   * تسجيل الدخول الحقيقي عبر Supabase Auth
+   */
+  static async signIn(email: string, pass: string): Promise<{
+    success: boolean;
+    user?: any;
+    role?: 'pharmacist' | 'admin' | 'super_admin';
+    error?: string;
+  }> {
+    const client = this.getClient();
+    if (!client) {
+      return { success: false, error: 'لم يتم ربط قاعدة بيانات Supabase بعد.' };
+    }
+
+    try {
+      const { data, error } = await client.auth.signInWithPassword({
+        email: email.trim(),
+        password: pass,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      const role = (data.user?.user_metadata?.role as any) || 'pharmacist';
+      return {
+        success: true,
+        user: data.user,
+        role: role,
+      };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'خطأ أثناء تسجيل الدخول عبر Supabase' };
+    }
+  }
+
+  /**
+   * إنشاء مستخدم جديد وتعيين دوره (pharmacist / admin / super_admin) في بيانات Supabase
+   */
+  static async signUp(
+    email: string,
+    pass: string,
+    role: 'pharmacist' | 'admin' | 'super_admin',
+    fullName: string
+  ): Promise<{ success: boolean; user?: any; error?: string }> {
+    const client = this.getClient();
+    if (!client) {
+      return { success: false, error: 'قاعدة بيانات Supabase غير متصلة.' };
+    }
+
+    try {
+      const { data, error } = await client.auth.signUp({
+        email: email.trim(),
+        password: pass,
+        options: {
+          data: {
+            role: role,
+            full_name: fullName,
+          },
+        },
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, user: data.user };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'خطأ أثناء إنشاء الحساب في Supabase' };
+    }
+  }
+
+  /**
+   * التحقق من دور المستخدم الحالي من الـ JWT جلسة Supabase
+   */
+  static async getCurrentUserRole(): Promise<'pharmacist' | 'admin' | 'super_admin' | null> {
+    const client = this.getClient();
+    if (!client) return null;
+
+    try {
+      const { data: { session } } = await client.auth.getSession();
+      if (!session || !session.user) return null;
+      return (session.user.user_metadata?.role as any) || 'pharmacist';
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * تسجيل الخروج وإبطال جلسة الـ JWT
+   */
+  static async signOut(): Promise<boolean> {
+    const client = this.getClient();
+    if (!client) return true;
+    try {
+      await client.auth.signOut();
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }

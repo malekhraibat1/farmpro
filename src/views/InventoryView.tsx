@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Medicine, AppSettings, UserRole } from '../types';
 import { ExcelImportModal } from '../components/ExcelImportModal';
+import { ValidationService } from '../services/validationService';
 
 interface InventoryViewProps {
   medicines: Medicine[];
@@ -44,6 +45,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [showExcelModal, setShowExcelModal] = useState(false);
   const [editingMed, setEditingMed] = useState<Medicine | null>(null);
   const [importNotification, setImportNotification] = useState<{ newCount: number; updatedCount: number } | null>(null);
+  const [validationError, setValidationError] = useState('');
 
   // Form states
   const [barcode, setBarcode] = useState('');
@@ -105,6 +107,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setBatchNumber(`BATCH-${Math.floor(100 + Math.random() * 900)}`);
     setExpiryDate('2028-12-31');
     setManufacturer('');
+    setValidationError('');
     setShowAddModal(true);
   };
 
@@ -122,49 +125,49 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setBatchNumber(med.batchNumber);
     setExpiryDate(med.expiryDate);
     setManufacturer(med.manufacturer);
+    setValidationError('');
     setShowAddModal(true);
   };
 
   const handleSaveMedicine = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tradeName.trim()) return;
+    setValidationError('');
 
-    const sQty = Math.max(0, parseInt(stockQuantity) || 0);
-    const mQty = Math.max(0, parseInt(minQuantity) || 0);
-    const pPrice = Math.max(0, parseFloat(purchasePrice) || 0);
-    const sPrice = Math.max(0, parseFloat(sellPrice) || 0);
+    const sQty = parseInt(stockQuantity) || 0;
+    const mQty = parseInt(minQuantity) || 0;
+    const pPrice = parseFloat(purchasePrice) || 0;
+    const sPrice = parseFloat(sellPrice) || 0;
+
+    const validation = ValidationService.validateMedicine({
+      barcode: barcode.trim(),
+      tradeName: tradeName.trim(),
+      genericName: genericName.trim(),
+      category,
+      unit,
+      stockQuantity: sQty,
+      minQuantity: mQty,
+      purchasePrice: pPrice,
+      sellPrice: sPrice,
+      batchNumber: batchNumber.trim(),
+      expiryDate,
+      manufacturer: manufacturer.trim(),
+    });
+
+    if (!validation.success) {
+      const issue = validation.error.issues[0];
+      setValidationError(issue ? issue.message : 'يرجى مراجعة بيانات الصنف المدخلة.');
+      return;
+    }
+
+    const validatedData = validation.data;
 
     if (editingMed) {
       onUpdateMedicine({
         ...editingMed,
-        barcode: barcode.trim(),
-        tradeName: tradeName.trim(),
-        genericName: genericName.trim(),
-        category,
-        unit,
-        stockQuantity: sQty,
-        minQuantity: mQty,
-        purchasePrice: pPrice,
-        sellPrice: sPrice,
-        batchNumber: batchNumber.trim(),
-        expiryDate,
-        manufacturer: manufacturer.trim(),
+        ...validatedData,
       });
     } else {
-      onAddMedicine({
-        barcode: barcode.trim(),
-        tradeName: tradeName.trim(),
-        genericName: genericName.trim(),
-        category,
-        unit,
-        stockQuantity: sQty,
-        minQuantity: mQty,
-        purchasePrice: pPrice,
-        sellPrice: sPrice,
-        batchNumber: batchNumber.trim(),
-        expiryDate,
-        manufacturer: manufacturer.trim(),
-      });
+      onAddMedicine(validatedData);
     }
 
     setShowAddModal(false);
@@ -476,6 +479,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             </div>
 
             <form onSubmit={handleSaveMedicine} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
+              {validationError && (
+                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{validationError}</span>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">الاسم التجاري *</label>

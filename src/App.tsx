@@ -31,6 +31,7 @@ import { SuperAdminView } from './views/SuperAdminView';
 import { SupabaseSyncModal } from './components/SupabaseSyncModal';
 import { PharmacyInstanceManagerModal } from './components/PharmacyInstanceManagerModal';
 import { InstanceLoginModal } from './components/InstanceLoginModal';
+import { FirstTimeSetupModal } from './components/FirstTimeSetupModal';
 import { InstanceService } from './services/instanceService';
 import { AlertCircle, Key, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react';
 
@@ -208,6 +209,60 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // إدارة الجلسات: تسجيل خروج تلقائي بعد فترة خمول (15–30 دقيقة)
+  useEffect(() => {
+    const timeoutMinutes = settings.sessionTimeoutMinutes || 20;
+
+    const resetActivity = () => {
+      AppStorage.updateLastActivity();
+    };
+
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(evt => window.addEventListener(evt, resetActivity, { passive: true }));
+
+    // فحص انتهاء مدة الجلسة كل 30 ثانية
+    const interval = setInterval(() => {
+      if (currentRole !== 'pharmacist' && AppStorage.isSessionExpired(timeoutMinutes)) {
+        AppStorage.invalidateSession();
+        setCurrentRole('pharmacist');
+        setIsLocked(true);
+        showToast(
+          `🔒 تم قفل النظام تلقائياً بسبب الخمول لأكثر من ${timeoutMinutes} دقيقة لحماية بيانات الصيدلية.`,
+          'info'
+        );
+      }
+    }, 30000);
+
+    return () => {
+      events.forEach(evt => window.removeEventListener(evt, resetActivity));
+      clearInterval(interval);
+    };
+  }, [currentRole, settings.sessionTimeoutMinutes, showToast]);
+
+  // المزامنة الدورية إلى Supabase كل 10 دقائق إذا كان متصلاً
+  useEffect(() => {
+    const activeInstId = InstanceService.getActiveInstanceId();
+    const config = SupabaseService.getConfig(activeInstId);
+    if (!config.isConnected) return;
+
+    const syncInterval = setInterval(async () => {
+      try {
+        await SupabaseService.pushAllDataToSupabase(
+          entities,
+          medicines,
+          sales,
+          transactions,
+          expenses,
+          settings
+        );
+      } catch (err) {
+        console.warn('Periodic background Supabase sync failed:', err);
+      }
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(syncInterval);
+  }, [entities, medicines, sales, transactions, expenses]);
 
   // Notifications calculation
   const now = new Date();
@@ -436,17 +491,38 @@ export default function App() {
         <SplashScreen onDismiss={() => setShowSplash(false)} autoClose={true} />
       )}
 
-      {/* Lock Screen Modal */}
+      {/* First-Time Security Setup Wizard (شاشة أول تشغيل لتعيين كلمة مرور و PIN قويين) */}
+      {!settings.isSetupCompleted && !settings.pincodeHash && !settings.adminPasswordHash && (
+        <FirstTimeSetupModal
+          isOpen={!settings.isSetupCompleted && !settings.pincodeHash && !settings.adminPasswordHash}
+          currentSettings={settings}
+          onCompleteSetup={updated => {
+            setSettings(updated);
+            AppStorage.saveSettings(updated);
+            showToast('🎉 تم إعداد أمان الصيدلية بنجاح وتشفير بيانات الدخول!', 'success');
+          }}
+        />
+      )}
+
+      {/* Lock Screen Modal - بدون أي رموز افتراضية */}
       <SecurityLockModal
         isOpen={isLocked}
-        onUnlock={() => setIsLocked(false)}
+        onUnlock={() => {
+          setIsLocked(false);
+          AppStorage.updateLastActivity();
+        }}
         currentRole={currentRole}
         onRoleChange={role => {
           setCurrentRole(role);
+          AppStorage.updateLastActivity();
           if (role === 'super_admin') setCurrentTab('super_admin');
         }}
         correctPin={settings.pincode}
-        superAdminPin={settings.superAdminPin || '7777'}
+        pincodeHash={settings.pincodeHash}
+        pincodeSalt={settings.pincodeSalt}
+        superAdminPin={settings.superAdminPin}
+        superAdminPinHash={settings.superAdminPinHash}
+        superAdminPinSalt={settings.superAdminPinSalt}
         onOpenSuperAdminDirectly={handleOpenSuperAdmin}
       />
 

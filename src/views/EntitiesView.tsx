@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Entity, EntityType, FinancialTransaction, AppSettings, TransactionType, UserRole } from '../types';
 import { EntityLedgerModal } from '../components/EntityLedgerModal';
+import { ValidationService } from '../services/validationService';
 
 interface EntitiesViewProps {
   entities: Entity[];
@@ -65,6 +66,7 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
   const [creditLimit, setCreditLimit] = useState('5000');
   const [initialBalance, setInitialBalance] = useState('0');
   const [notes, setNotes] = useState('');
+  const [entityValidationError, setEntityValidationError] = useState('');
 
   // Handle entity selected
   const handleOpenLedger = (entity: Entity) => {
@@ -121,9 +123,9 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
 
   const handleSaveEntity = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    setEntityValidationError('');
 
-    onAddEntity({
+    const validation = ValidationService.validateEntity({
       name: name.trim(),
       type,
       phone: phone.trim(),
@@ -133,6 +135,14 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
       notes: notes.trim(),
     });
 
+    if (!validation.success) {
+      const issue = validation.error.issues[0];
+      setEntityValidationError(issue ? issue.message : 'يرجى مراجعة بيانات الحساب.');
+      return;
+    }
+
+    onAddEntity(validation.data);
+
     // Reset
     setName('');
     setPhone('');
@@ -140,6 +150,7 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
     setCreditLimit('5000');
     setInitialBalance('0');
     setNotes('');
+    setEntityValidationError('');
     setShowAddModal(false);
   };
 

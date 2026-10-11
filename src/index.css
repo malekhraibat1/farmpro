@@ -63,50 +63,64 @@ button:active,
 }
 
 /* 1. BUTTON INTERACTION & CONTRAST FOUNDATIONS */
-/* حماية نصوص وأيقونات جميع الأزرار من الاختفاء عند الضغط أو النقر في كامل البرنامج */
+/* حماية نصوص وأيقونات جميع الأزرار في كامل البرنامج من الاختفاء أو تحول النص للأبيض على خلفية بيضاء */
+button,
 button *,
+[role="button"],
 [role="button"] * {
   visibility: visible;
 }
 
-/* الأزرار الداكنة والملونة: نص أبيض ناصع لا يختفي أبداً عند النقر أو الضغط */
+/* الأزرار ذات الخلفيات البيضاء أو الفاتحة: نص داكن جداً واضح ومقروء 100% مع حدود صلبة ومميزة */
+button.bg-white,
+button.bg-white > span,
+button.bg-white > div,
+button.bg-white p,
+button.bg-slate-50,
+button.bg-slate-100,
+button.bg-slate-200,
+button.bg-gray-50,
+button.bg-gray-100,
+button.bg-stone-50,
+button.bg-stone-100 {
+  color: #0f172a !important;
+}
+
+/* عند مرور الماوس أو الضغط على الأزرار الفاتحة يبقى النص داكناً ومقروءاً ولا يتحول للأبيض أبداً */
+button.bg-white:active,
+button.bg-white:active > span,
+button.bg-white:active > div,
+button.bg-slate-50:active,
+button.bg-slate-100:active,
+button.bg-slate-200:active {
+  color: #020617 !important;
+}
+
+/* الأزرار الملونة الفاتحة (درجات 50 و 100): نصوص داكنة متناسقة عالية التباين وليست بيضاء */
+button.bg-blue-50, button.bg-blue-100 { color: #1e3a8a !important; }
+button.bg-sky-50, button.bg-sky-100 { color: #0c4a6e !important; }
+button.bg-cyan-50, button.bg-cyan-100 { color: #164e63 !important; }
+button.bg-teal-50, button.bg-teal-100 { color: #134e4a !important; }
+button.bg-emerald-50, button.bg-emerald-100 { color: #064e3b !important; }
+button.bg-amber-50, button.bg-amber-100 { color: #78350f !important; }
+button.bg-rose-50, button.bg-rose-100 { color: #881337 !important; }
+button.bg-purple-50, button.bg-purple-100 { color: #581c87 !important; }
+button.bg-indigo-50, button.bg-indigo-100 { color: #312e81 !important; }
+
+/* الأزرار الداكنة والمجسمة الأساسية: نص أبيض ساطع وواضح ومتباين */
 button.text-white,
-button.text-white *,
-button[class*="text-white"],
-button[class*="text-white"] *,
-button[class*="bg-cyan-"],
-button[class*="bg-cyan-"] *,
-button[class*="bg-blue-"],
-button[class*="bg-blue-"] *,
-button[class*="bg-emerald-"],
-button[class*="bg-emerald-"] *,
-button[class*="bg-teal-"],
-button[class*="bg-teal-"] *,
-button[class*="bg-indigo-"],
-button[class*="bg-indigo-"] *,
-button[class*="bg-purple-"],
-button[class*="bg-purple-"] *,
-button[class*="bg-slate-9"],
-button[class*="bg-slate-9"] *,
-button[class*="bg-slate-8"],
-button[class*="bg-slate-8"] *,
-button[class*="bg-amber-6"],
-button[class*="bg-amber-6"] *,
-button[class*="bg-rose-"],
-button[class*="bg-rose-"] * {
+button.text-white > span,
+button.text-white > div,
+button.text-white p,
+button.text-white svg {
   color: #ffffff;
 }
 
-button:active.text-white,
-button:active.text-white *,
-button:active[class*="text-white"],
-button:active[class*="text-white"] * {
+button.text-white:active,
+button.text-white:active > span,
+button.text-white:active > div,
+button.text-white:active svg {
   color: #ffffff !important;
-}
-
-/* الأزرار الفاتحة: نص داكن واضح جداً ومقروء */
-button:not([class*="text-white"]):not([class*="bg-cyan-"]):not([class*="bg-blue-"]):not([class*="bg-emerald-"]):not([class*="bg-teal-"]):not([class*="bg-indigo-"]):not([class*="bg-purple-"]):not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-amber-6"]):not([class*="bg-rose-"]) {
-  color: inherit;
 }
 
 /* ========================================================
@@ -115,21 +129,23 @@ button:not([class*="text-white"]):not([class*="bg-cyan-"]):not([class*="bg-blue-
 
 /* Global Contrast Boost - Improves readability across themes without breaking buttons */
 .contrast-boost,
+[data-theme="hyper_clarity"],
 [data-theme="pure_clarity"],
 [data-theme="ultra_contrast"],
 [data-theme="crisp_classic"] {
   --text-dark: #000000;
-  --text-body: #0f172a;
-  --text-secondary: #1e293b;
-  --text-muted: #334155;
-  --border-strong: #475569;
+  --text-body: #020617;
+  --text-secondary: #0f172a;
+  --text-muted: #1e293b;
+  --border-strong: #334155;
 }
 
 .contrast-boost body,
+[data-theme="hyper_clarity"] body,
 [data-theme="pure_clarity"] body,
 [data-theme="ultra_contrast"] body {
   background-color: #f8fafc;
-  color: #0f172a;
+  color: #020617;
   font-weight: 550;
 }
 
@@ -138,6 +154,12 @@ button:not([class*="text-white"]):not([class*="bg-cyan-"]):not([class*="bg-blue-
 .contrast-boost h2,
 .contrast-boost h3,
 .contrast-boost h4,
+[data-theme="hyper_clarity"] h1,
+[data-theme="hyper_clarity"] h2,
+[data-theme="hyper_clarity"] h3,
+[data-theme="hyper_clarity"] h4,
+[data-theme="hyper_clarity"] h5,
+[data-theme="hyper_clarity"] h6,
 [data-theme="pure_clarity"] h1,
 [data-theme="pure_clarity"] h2,
 [data-theme="pure_clarity"] h3,
@@ -150,28 +172,124 @@ button:not([class*="text-white"]):not([class*="bg-cyan-"]):not([class*="bg-blue-
 [data-theme="crisp_classic"] h2,
 [data-theme="crisp_classic"] h3,
 [data-theme="crisp_classic"] h4 {
-  color: #020617 !important;
+  color: #000000 !important;
   font-weight: 850;
   letter-spacing: -0.01em;
 }
 
-/* Crystal Clear Alerts & Badges for pure_clarity */
+/* ========================================================
+   HYPER CLARITY & HIGH CONTRAST BUTTON SYSTEM
+   ======================================================== */
+
+/* 1. All buttons have solid distinct geometry & crisp readable text */
+[data-theme="hyper_clarity"] button,
+.contrast-boost button {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* 2. Light, secondary, or bordered buttons: deep dark text and solid visible borders */
+[data-theme="hyper_clarity"] button.bg-white,
+[data-theme="hyper_clarity"] button.bg-slate-50,
+[data-theme="hyper_clarity"] button.bg-slate-100,
+.contrast-boost button.bg-white,
+.contrast-boost button.bg-slate-50,
+.contrast-boost button.bg-slate-100 {
+  color: #020617 !important;
+  border-color: #64748b;
+  border-width: 1.5px;
+  font-weight: 750 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="hyper_clarity"] button.bg-white:hover,
+[data-theme="hyper_clarity"] button.bg-slate-50:hover,
+[data-theme="hyper_clarity"] button.bg-slate-100:hover,
+.contrast-boost button.bg-white:hover,
+.contrast-boost button.bg-slate-50:hover,
+.contrast-boost button.bg-slate-100:hover {
+  background-color: #f1f5f9;
+  border-color: #334155;
+  color: #000000 !important;
+}
+
+/* 3. Primary & colored buttons: bold with strong shadow and bright white text */
+[data-theme="hyper_clarity"] button.text-white,
+.contrast-boost button.text-white {
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+/* 4. Table icon action buttons (Edit, Delete, View, Details) */
+[data-theme="hyper_clarity"] table td button,
+.contrast-boost table td button {
+  border: 1.5px solid #94a3b8;
+  border-radius: 0.65rem;
+  padding: 0.35rem 0.6rem;
+  font-weight: 750;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="hyper_clarity"] table td button:hover,
+.contrast-boost table td button:hover {
+  background-color: #f1f5f9;
+  border-color: #475569;
+}
+
+/* Edit action buttons in table */
+[data-theme="hyper_clarity"] table td button.text-cyan-700,
+[data-theme="hyper_clarity"] table td button[class*="text-cyan-"],
+.contrast-boost table td button.text-cyan-700,
+.contrast-boost table td button[class*="text-cyan-"] {
+  color: #0369a1 !important;
+  background-color: #f0f9ff !important;
+  border-color: #38bdf8 !important;
+}
+
+/* Delete action buttons in table */
+[data-theme="hyper_clarity"] table td button.text-rose-600,
+[data-theme="hyper_clarity"] table td button[class*="text-rose-"],
+.contrast-boost table td button.text-rose-600,
+.contrast-boost table td button[class*="text-rose-"] {
+  color: #be123c !important;
+  background-color: #fff1f2 !important;
+  border-color: #fb7185 !important;
+}
+
+/* Crystal Clear Alerts & Badges for pure_clarity and hyper_clarity */
+[data-theme="hyper_clarity"] .bg-emerald-50,
+[data-theme="hyper_clarity"] .bg-emerald-100,
 [data-theme="pure_clarity"] .bg-emerald-50 {
   background-color: #ecfdf5 !important;
   border-color: #10b981 !important;
   color: #064e3b !important;
+  font-weight: 750 !important;
 }
 
+[data-theme="hyper_clarity"] .bg-rose-50,
+[data-theme="hyper_clarity"] .bg-rose-100,
 [data-theme="pure_clarity"] .bg-rose-50 {
   background-color: #fff1f2 !important;
   border-color: #f43f5e !important;
   color: #881337 !important;
+  font-weight: 750 !important;
 }
 
+[data-theme="hyper_clarity"] .bg-amber-50,
+[data-theme="hyper_clarity"] .bg-amber-100,
 [data-theme="pure_clarity"] .bg-amber-50 {
   background-color: #fffbeb !important;
   border-color: #f59e0b !important;
   color: #78350f !important;
+  font-weight: 750 !important;
+}
+
+[data-theme="hyper_clarity"] .bg-blue-50,
+[data-theme="hyper_clarity"] .bg-blue-100 {
+  background-color: #eff6ff !important;
+  border-color: #3b82f6 !important;
+  color: #1e3a8a !important;
+  font-weight: 750 !important;
 }
 
 /* Safely enhance light gray text on light backgrounds WITHOUT affecting buttons */

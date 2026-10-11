@@ -202,11 +202,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold transition-all ${
                 isActive
                   ? item.id === 'super_admin'
-                    ? 'bg-amber-600 bg-gradient-to-l from-amber-500 to-yellow-600 text-white shadow-md shadow-amber-500/25 ring-2 ring-amber-400/30'
-                    : 'bg-cyan-700 bg-gradient-to-l from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/20 ring-2 ring-cyan-500/30'
+                    ? 'bg-amber-600 bg-gradient-to-l from-amber-500 to-yellow-600 text-white shadow-lg shadow-amber-500/30 border-2 border-amber-600 ring-2 ring-amber-400/40'
+                    : 'bg-blue-700 bg-gradient-to-l from-blue-700 to-indigo-800 text-white shadow-lg shadow-blue-700/30 border-2 border-blue-900 ring-2 ring-blue-500/30'
                   : item.id === 'super_admin'
-                  ? 'bg-amber-50 text-amber-950 border border-amber-200 hover:bg-amber-100'
-                  : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-950'
+                  ? 'bg-amber-50 text-amber-950 border-2 border-amber-300 hover:bg-amber-100 font-bold'
+                  : 'bg-white dark:bg-slate-800/90 text-slate-950 dark:text-slate-100 border-2 border-slate-200 dark:border-slate-700 hover:border-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750 shadow-xs'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -215,13 +215,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     isActive
                       ? 'scale-110 text-white'
                       : item.id === 'super_admin'
-                      ? 'text-amber-600'
-                      : 'text-slate-500 dark:text-slate-400'
+                      ? 'text-amber-700'
+                      : 'text-slate-700 dark:text-slate-300'
                   }`}
                 />
                 <span
-                  className={`truncate text-sm font-bold ${
-                    isActive ? 'text-white font-black' : 'text-slate-900 dark:text-slate-100'
+                  className={`truncate text-sm ${
+                    isActive ? 'text-white font-black' : 'text-slate-950 dark:text-slate-50 font-black'
                   }`}
                 >
                   {item.label}
@@ -229,8 +229,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               {item.badge && (
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
-                    isActive ? 'bg-white/20 text-white' : item.badgeColor
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-black shrink-0 ${
+                    isActive ? 'bg-white/25 text-white border border-white/40' : item.badgeColor
                   }`}
                 >
                   {item.badge}
@@ -242,7 +242,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Quick Tools: Themes & Device Sync & Pharmacy Isolation */}
         <div className="pt-2 pb-1 space-y-1">
-          <div className="text-[10px] font-bold text-slate-400 px-3 py-1 uppercase tracking-wider">
+          <div className="text-[10px] font-black text-slate-600 dark:text-slate-300 px-3 py-1 uppercase tracking-wider">
             المظهر والأجهزة والمقرات
           </div>
           <div className="grid grid-cols-2 gap-1.5 px-1">
@@ -250,7 +250,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={onOpenThemeSelector}
-                className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200/80 dark:border-slate-700 transition-all"
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 text-xs font-black border-2 border-slate-300 dark:border-slate-600 shadow-xs transition-all"
               >
                 <span>🎨 الثيمات</span>
               </button>
@@ -259,9 +259,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={onOpenDeviceSync}
-                className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-200/80 dark:border-indigo-800/60 transition-all"
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-950 dark:text-indigo-200 text-xs font-black border-2 border-indigo-200/90 dark:border-indigo-800/80 shadow-xs transition-all"
               >
-                <span>📱💻 الأجهزة</span>
+                <span>📱 الأجهزة</span>
               </button>
             )}
           </div>
@@ -270,7 +270,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={onOpenInstanceManager}
-                className="w-full flex items-center justify-center gap-2 p-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/50 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-200/80 dark:border-teal-800/60 transition-all"
+                className="w-full flex items-center justify-center gap-2 p-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/50 dark:hover:bg-teal-900/60 text-teal-950 dark:text-teal-200 text-xs font-black border-2 border-teal-200/90 dark:border-teal-800/80 shadow-xs transition-all"
               >
                 <span>🏢 تخصيص وعزل النسخ</span>
               </button>

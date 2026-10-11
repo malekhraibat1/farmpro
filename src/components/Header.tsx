@@ -149,10 +149,10 @@ export const Header: React.FC<HeaderProps> = ({
           {onOpenInstanceManager && currentRole !== 'pharmacist' && (
             <button
               onClick={onOpenInstanceManager}
-              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 border border-teal-200/80 dark:border-teal-800 text-teal-700 dark:text-teal-300 text-xs font-bold transition-all shadow-xs"
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 border-2 border-teal-300 dark:border-teal-700 text-teal-950 dark:text-teal-200 text-xs font-black transition-all shadow-xs"
               title="تخصيص النسخ وعزل بيانات الصيدليات"
             >
-              <Building2 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              <Building2 className="w-3.5 h-3.5 text-teal-700 dark:text-teal-400" />
               <span className="hidden sm:inline text-[11px]">نسخ الصيدليات</span>
             </button>
           )}
@@ -160,35 +160,35 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Theme Switcher Button */}
           <button
             onClick={onOpenThemeSelector}
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200/70 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-xs"
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-xs font-black transition-all shadow-xs"
             title="تغيير ثيم ومظهر البرنامج"
           >
-            <Palette className="w-3.5 h-3.5 text-indigo-500" />
-            <span className="w-2.5 h-2.5 rounded-full border border-black/10 shadow-xs" style={{ backgroundColor: currentTheme.primaryColor }} />
+            <Palette className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span className="w-2.5 h-2.5 rounded-full border border-black/20 shadow-xs" style={{ backgroundColor: currentTheme.primaryColor }} />
             <span className="hidden sm:inline text-[11px]">الثيم</span>
           </button>
 
           {/* Quick Sale button */}
           <button
             onClick={onNewSaleShortcut}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-white text-xs font-bold shadow-sm transition-all"
+            className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white text-xs font-black shadow-md border-2 border-emerald-900 transition-all"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
             <span>فاتورة (F2)</span>
           </button>
 
           {/* Designer Branding button */}
           <button
             onClick={onOpenAbout}
-            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-50 to-blue-50 hover:from-cyan-100 hover:to-blue-100 dark:from-slate-800 dark:to-indigo-950 dark:hover:from-slate-700 dark:hover:to-indigo-900 border border-cyan-200/60 dark:border-indigo-800 text-cyan-900 dark:text-cyan-300 text-xs font-semibold transition-all group"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border-2 border-cyan-300 dark:border-indigo-800 text-slate-900 dark:text-cyan-200 text-xs font-black transition-all group shadow-xs"
             title="معلومات المهندس المصمم والتواصل"
           >
             <Award className="w-4 h-4 text-cyan-600 dark:text-cyan-400 group-hover:scale-110 transition-transform" />
             <div className="text-right hidden md:block">
-              <div className="text-[9px] text-cyan-600 dark:text-cyan-400 font-bold leading-none">المطور</div>
-              <div className="text-xs font-black text-slate-800 dark:text-white leading-tight">{settings.designerName}</div>
+              <div className="text-[9px] text-cyan-700 dark:text-cyan-400 font-bold leading-none">المطور</div>
+              <div className="text-xs font-black text-slate-950 dark:text-white leading-tight">{settings.designerName}</div>
             </div>
-            <span className="md:hidden text-[10px] font-bold">م. مالك</span>
+            <span className="md:hidden text-[10px] font-black">م. مالك</span>
           </button>
 
           {/* Role badge */}
@@ -200,21 +200,21 @@ export const Header: React.FC<HeaderProps> = ({
                 onLock();
               }
             }}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all shadow-xs ${
               currentRole === 'super_admin'
-                ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-white border-amber-300 shadow-sm shadow-amber-500/20'
+                ? 'bg-amber-600 text-white border-amber-400 shadow-amber-500/20'
                 : currentRole === 'admin'
-                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/60 hover:bg-amber-100'
-                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-blue-200/80 dark:border-blue-800/60 hover:bg-blue-100'
+                ? 'bg-amber-100 text-amber-950 border-amber-400 hover:bg-amber-200'
+                : 'bg-blue-100 text-blue-950 border-blue-400 hover:bg-blue-200'
             }`}
             title="تبديل الصلاحية / قفل الشاشة"
           >
             {currentRole === 'super_admin' ? (
               <Sparkles className="w-3.5 h-3.5 text-yellow-200" />
             ) : currentRole === 'admin' ? (
-              <Shield className="w-3.5 h-3.5 text-amber-600" />
+              <Shield className="w-3.5 h-3.5 text-amber-800" />
             ) : (
-              <User className="w-3.5 h-3.5 text-blue-600" />
+              <User className="w-3.5 h-3.5 text-blue-800" />
             )}
             <span className="hidden sm:inline">
               {currentRole === 'super_admin'
@@ -228,10 +228,10 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Lock screen button */}
           <button
             onClick={onLock}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-xl text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 dark:text-slate-200 dark:hover:text-white dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 transition-colors shadow-xs"
             title="قفل البرنامج"
           >
-            <Lock className="w-4 h-4" />
+            <Lock className="w-4 h-4 text-slate-700 dark:text-slate-200" />
           </button>
         </div>
       </div>

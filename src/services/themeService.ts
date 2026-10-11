@@ -1,4 +1,5 @@
 export type ThemeId = 
+  | 'hyper_clarity'
   | 'pure_clarity'
   | 'ultra_contrast'
   | 'crisp_classic'
@@ -31,6 +32,23 @@ export interface ThemeDefinition {
 }
 
 export const AVAILABLE_THEMES: ThemeDefinition[] = [
+  {
+    id: 'hyper_clarity',
+    name: 'الوضوح الشامل والأزرار البارزة الفائقة (Hyper Clarity Pro 🌟)',
+    nameEn: 'Hyper Clarity & Bold UI',
+    description: 'ثيم فائق الوضوح والتباين: أزرار مجسمة بارزة مع خطوط بيضاء ساطعة، حدود صلبة مميزة لجميع القوائم، وعناوين وأسعار سوداء داكنة واضحة 100% بدون أي بهتان',
+    isDark: false,
+    isHighContrast: true,
+    primaryColor: '#1d4ed8',
+    secondaryColor: '#0f172a',
+    accentGradient: 'from-blue-950 via-slate-900 to-indigo-950',
+    primaryBtnClass: 'bg-blue-700 hover:bg-blue-800 text-white font-black shadow-lg shadow-blue-700/30 border-2 border-blue-950 ring-2 ring-blue-500/20',
+    headerBgClass: 'bg-white border-b-2 border-slate-300 shadow-sm',
+    cardBorderClass: 'border-2 border-slate-300 shadow-sm',
+    activeTabClass: 'bg-blue-800 text-white font-black shadow-lg shadow-blue-900/30 border-2 border-blue-950',
+    badgeClass: 'bg-blue-100 text-blue-950 border-2 border-blue-700 font-black',
+    previewColors: ['#1d4ed8', '#ffffff', '#0f172a'],
+  },
   {
     id: 'pure_clarity',
     name: 'الوضوح الكريستالي الفائق (Crystal Pure Clarity 💎)',
@@ -243,7 +261,7 @@ export class ThemeService {
     } catch (e) {
       console.warn('Could not read theme from localStorage:', e);
     }
-    return 'pure_clarity'; // Premier ultra-crisp readable theme by default
+    return 'hyper_clarity'; // Premier ultra-crisp readable theme by default
   }
 
   static isContrastBoost(): boolean {

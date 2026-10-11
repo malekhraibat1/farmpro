@@ -252,20 +252,20 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setFilterType('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all border-2 ${
               filterType === 'all'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-slate-950 text-white border-black shadow-sm'
+                : 'bg-white text-slate-900 border-slate-300 hover:bg-slate-100 shadow-2xs'
             }`}
           >
             كافة الأصناف ({medicines.length})
           </button>
           <button
             onClick={() => setFilterType('near_expiry')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 border-2 ${
               filterType === 'near_expiry'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'bg-white text-amber-700 border border-amber-200 hover:bg-amber-50'
+                ? 'bg-amber-600 text-white border-amber-800 shadow-sm'
+                : 'bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100 shadow-2xs'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -273,10 +273,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </button>
           <button
             onClick={() => setFilterType('low_stock')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 border-2 ${
               filterType === 'low_stock'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'bg-white text-rose-700 border border-rose-200 hover:bg-rose-50'
+                ? 'bg-rose-600 text-white border-rose-800 shadow-sm'
+                : 'bg-rose-50 text-rose-950 border-rose-300 hover:bg-rose-100 shadow-2xs'
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
@@ -425,10 +425,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         {med.batchNumber}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => handleOpenEdit(med)}
-                            className="p-1.5 rounded-lg text-cyan-700 hover:bg-cyan-50 transition-colors"
+                            className="p-1.5 rounded-xl bg-sky-50 text-sky-800 hover:bg-sky-100 border border-sky-300 transition-colors shadow-2xs"
                             title="تعديل بيانات الدواء"
                           >
                             <Edit className="w-4 h-4" />
@@ -440,7 +440,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                   onDeleteMedicine(med.id);
                                 }
                               }}
-                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                              className="p-1.5 rounded-xl bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-300 transition-colors shadow-2xs"
                               title="حذف الصنف (خاص بالمدير)"
                             >
                               <Trash2 className="w-4 h-4" />

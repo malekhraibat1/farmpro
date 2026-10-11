@@ -235,20 +235,20 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all ${
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition-all border-2 ${
               activeTab === 'all'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                ? 'bg-slate-950 text-white border-black shadow-md'
+                : 'bg-white text-slate-900 hover:bg-slate-100 border-slate-300 shadow-xs'
             }`}
           >
             كافة الحسابات ({entities.length})
           </button>
           <button
             onClick={() => setActiveTab('pharmacy')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-1.5 border-2 ${
               activeTab === 'pharmacy'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                ? 'bg-purple-700 text-white border-purple-900 shadow-md'
+                : 'bg-white text-slate-900 hover:bg-slate-100 border-slate-300 shadow-xs'
             }`}
           >
             <Store className="w-3.5 h-3.5" />
@@ -256,10 +256,10 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('company')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-1.5 border-2 ${
               activeTab === 'company'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                ? 'bg-blue-700 text-white border-blue-900 shadow-md'
+                : 'bg-white text-slate-900 hover:bg-slate-100 border-slate-300 shadow-xs'
             }`}
           >
             <Building2 className="w-3.5 h-3.5" />
@@ -267,10 +267,10 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('customer')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-1.5 border-2 ${
               activeTab === 'customer'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                ? 'bg-emerald-700 text-white border-emerald-900 shadow-md'
+                : 'bg-white text-slate-900 hover:bg-slate-100 border-slate-300 shadow-xs'
             }`}
           >
             <User className="w-3.5 h-3.5" />
@@ -281,54 +281,54 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
         {/* Sub-bar: Search & Balance status pills */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+            <Search className="w-4 h-4 text-slate-500 absolute right-3.5 top-3" />
             <input
               type="text"
               placeholder="بحث بالاسم، الهاتف، العنوان..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pr-10 pl-4 py-2 text-xs rounded-2xl border border-slate-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full pr-10 pl-4 py-2 text-xs rounded-2xl border-2 border-slate-300 bg-white font-bold text-slate-900 shadow-xs focus:outline-none focus:border-cyan-600 placeholder:text-slate-500"
             />
           </div>
 
           <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto text-xs">
-            <span className="text-slate-400 text-[11px] shrink-0 font-medium">حالة الرصيد:</span>
+            <span className="text-slate-900 text-xs shrink-0 font-black">حالة الرصيد:</span>
             <button
               onClick={() => setBalanceFilter('all')}
-              className={`px-3 py-1 rounded-xl text-xs font-semibold ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all ${
                 balanceFilter === 'all'
-                  ? 'bg-slate-200 text-slate-800 font-bold'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-slate-950 text-white border-black shadow-xs'
+                  : 'bg-white text-slate-900 border-slate-300 hover:bg-slate-100'
               }`}
             >
               الكل
             </button>
             <button
               onClick={() => setBalanceFilter('debtors')}
-              className={`px-3 py-1 rounded-xl text-xs font-semibold ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all ${
                 balanceFilter === 'debtors'
-                  ? 'bg-amber-100 text-amber-800 font-bold'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-amber-500 text-slate-950 border-amber-700 shadow-xs'
+                  : 'bg-white text-slate-900 border-slate-300 hover:bg-amber-50'
               }`}
             >
               مدين (عليه دين لنا)
             </button>
             <button
               onClick={() => setBalanceFilter('creditors')}
-              className={`px-3 py-1 rounded-xl text-xs font-semibold ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all ${
                 balanceFilter === 'creditors'
-                  ? 'bg-blue-100 text-blue-800 font-bold'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-blue-600 text-white border-blue-800 shadow-xs'
+                  : 'bg-white text-slate-900 border-slate-300 hover:bg-blue-50'
               }`}
             >
               دائن (له دين علينا)
             </button>
             <button
               onClick={() => setBalanceFilter('settled')}
-              className={`px-3 py-1 rounded-xl text-xs font-semibold ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all ${
                 balanceFilter === 'settled'
-                  ? 'bg-emerald-100 text-emerald-800 font-bold'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-emerald-600 text-white border-emerald-800 shadow-xs'
+                  : 'bg-white text-slate-900 border-slate-300 hover:bg-emerald-50'
               }`}
             >
               مسدد (خالص)

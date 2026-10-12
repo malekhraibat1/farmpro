@@ -15,12 +15,14 @@ import {
   ShieldCheck,
   Key,
   Sparkles,
+  History,
 } from 'lucide-react';
 import { AppSettings, UserRole } from '../types';
 
 export type NavTab =
   | 'dashboard'
   | 'entities'
+  | 'transactions'
   | 'pos'
   | 'inventory'
   | 'expenses'
@@ -76,6 +78,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Users,
       badge: 'الرئيسي',
       badgeColor: 'bg-indigo-100 text-indigo-700',
+    },
+    {
+      id: 'transactions' as NavTab,
+      label: 'سجل الحركات والمعاملات',
+      icon: History,
+      badge: 'سجلات',
+      badgeColor: 'bg-cyan-100 text-cyan-800 font-bold',
     },
     {
       id: 'pos' as NavTab,

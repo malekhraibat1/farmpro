@@ -17,6 +17,8 @@ import {
   Store,
   User,
   CreditCard,
+  Edit3,
+  Trash2,
 } from 'lucide-react';
 import { Entity, FinancialTransaction, AppSettings, TransactionType, UserRole } from '../types';
 import { PrintStatementModal } from './PrintStatementModal';
@@ -37,6 +39,10 @@ interface EntityLedgerModalProps {
     referenceNumber: string
   ) => void;
   onUpdateCreditLimit?: (entityId: string, newLimit: number) => void;
+  onUpdateTransaction?: (transaction: FinancialTransaction) => void;
+  onDeleteTransaction?: (transactionId: string) => void;
+  onEditEntity?: (entity: Entity) => void;
+  onDeleteEntity?: (entityId: string) => void;
 }
 
 export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
@@ -48,11 +54,23 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
   currentRole = 'admin',
   onAddTransaction,
   onUpdateCreditLimit,
+  onUpdateTransaction,
+  onDeleteTransaction,
+  onEditEntity,
+  onDeleteEntity,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+
+  // Edit / Delete states
+  const [editingTx, setEditingTx] = useState<FinancialTransaction | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editType, setEditType] = useState<TransactionType>('payment_in');
+  const [editRef, setEditRef] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [deletingTxId, setDeletingTxId] = useState<string | null>(null);
 
   // Form states for new transaction
   const [formAmount, setFormAmount] = useState('');
@@ -215,6 +233,33 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
                   <Printer className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">طباعة كشف</span>
                 </button>
+
+                {onEditEntity && (
+                  <button
+                    onClick={() => onEditEntity(entity)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all shadow-sm"
+                    title="تعديل بيانات الحساب"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">تعديل الحساب</span>
+                  </button>
+                )}
+
+                {onDeleteEntity && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`هل أنت متأكد من حذف حساب ${entity.name} نهائياً؟`)) {
+                        onDeleteEntity(entity.id);
+                        onClose();
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-sm"
+                    title="حذف هذا الحساب"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">حذف الحساب</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -450,12 +495,13 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
                     <th className="py-3 px-3.5 text-blue-700">دائن (-)</th>
                     <th className="py-3 px-3.5 text-slate-900">الرصيد بعد الحركة</th>
                     <th className="py-3 px-3.5">المسؤول</th>
+                    <th className="py-3 px-3.5 text-center">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {entityTxs.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                      <td colSpan={9} className="py-12 text-center text-slate-400">
                         <FileText className="w-8 h-8 mx-auto text-slate-300 mb-2" />
                         <p>لا توجد حركات مالية مطابقة للبحث</p>
                       </td>
@@ -505,6 +551,40 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
                         <td className="py-3 px-3.5 text-slate-500 text-[11px] whitespace-nowrap">
                           {tx.recordedBy}
                         </td>
+                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {onUpdateTransaction && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingTx(tx);
+                                  setEditAmount(tx.amount.toString());
+                                  setEditType(tx.type);
+                                  setEditRef(tx.referenceNumber);
+                                  setEditNote(tx.note);
+                                }}
+                                className="p-1 rounded-lg text-cyan-700 hover:bg-cyan-100 transition-colors"
+                                title="تعديل الحركة"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {onDeleteTransaction && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`هل أنت متأكد من حذف حركة ${tx.referenceNumber} بقيمة ${tx.amount} ${settings.currency}؟`)) {
+                                    onDeleteTransaction(tx.id);
+                                  }
+                                }}
+                                className="p-1 rounded-lg text-rose-600 hover:bg-rose-100 transition-colors"
+                                title="حذف الحركة"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -537,6 +617,113 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
           transactions={entityTxs}
           settings={settings}
         />
+      )}
+
+      {/* Edit Transaction Modal */}
+      {editingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800">
+            <div className="p-5 bg-gradient-to-l from-slate-900 to-indigo-950 text-white flex justify-between items-center">
+              <div>
+                <h3 className="text-base font-black">تعديل الحركة المالية</h3>
+                <p className="text-xs text-slate-300">المرجع: {editingTx.referenceNumber}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTx(null)}
+                className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                const amt = parseFloat(editAmount);
+                if (isNaN(amt) || amt <= 0) return;
+                const dir = editType === 'invoice' || editType === 'payment_out' ? 'debit' : 'credit';
+                if (onUpdateTransaction) {
+                  onUpdateTransaction({
+                    ...editingTx,
+                    amount: amt,
+                    type: editType,
+                    direction: dir,
+                    referenceNumber: editRef.trim(),
+                    note: editNote.trim(),
+                  });
+                }
+                setEditingTx(null);
+              }}
+              className="p-6 space-y-4 text-xs"
+            >
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">نوع الحركة</label>
+                <select
+                  value={editType}
+                  onChange={e => setEditType(e.target.value as TransactionType)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white font-bold"
+                >
+                  <option value="payment_in">سند قبض نقدي (دفعة مسددة)</option>
+                  <option value="payment_out">سند صرف نقدي (سداد للشركة)</option>
+                  <option value="invoice">فاتورة بيع على الحساب</option>
+                  <option value="purchase">فاتورة شراء بضاعة</option>
+                  <option value="return">مرتجع مالي</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  المبلغ ({settings.currency})
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={editAmount}
+                  onChange={e => setEditAmount(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">رقم المرجع</label>
+                <input
+                  type="text"
+                  value={editRef}
+                  onChange={e => setEditRef(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">البيان والملاحظات</label>
+                <input
+                  type="text"
+                  value={editNote}
+                  onChange={e => setEditNote(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingTx(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold shadow-md shadow-cyan-600/20"
+                >
+                  حفظ التعديلات
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </>
   );

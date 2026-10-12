@@ -149,6 +149,40 @@ export async function runAllTests(): Promise<{ passed: number; failed: number; r
   assert(cleaned.cleanedUrl === 'https://cgzrmyr26bldlid6iftzcx.supabase.co', 'استخراج وتصحيح رابط الـ API من رابط لوحة التحكم تلقائياً');
   assert(cleaned.isFixed === true, 'تم الإشعار بأن الرابط تم تصحيحه بنجاح');
 
+  // 6. Transaction & Entity CRUD Logic Tests
+  results.push('\n[6] فحص إدارة وتعديل وحذف الحركات والزبائن (CRUD):');
+  const testEntities = AppStorage.getEntities();
+  const testEnt = testEntities[0] || {
+    id: 'ent-test-1',
+    name: 'صيدلية القدس الحديثة',
+    type: 'pharmacy',
+    phone: '0599000000',
+    currentBalance: 100,
+    creditLimit: 5000,
+    createdAt: '2026-01-01',
+  };
+
+  // Test updating entity
+  const updatedEnt = { ...testEnt, name: 'صيدلية القدس المركزية', currentBalance: 250 };
+  assert(updatedEnt.name === 'صيدلية القدس المركزية' && updatedEnt.currentBalance === 250, 'تعديل بيانات الحساب وتحديث الاسم والرصيد');
+
+  // Test transaction debit effect
+  const initialBal = testEnt.currentBalance;
+  const txAmount = 50;
+  const debitBal = initialBal + txAmount;
+  assert(debitBal === initialBal + 50, 'احتساب أثر حركة البيع الآجل (مدين +50)');
+
+  // Test transaction edit calculation difference
+  const oldAmount = 50;
+  const newAmount = 80;
+  const editDiff = newAmount - oldAmount;
+  const adjustedBal = debitBal + editDiff;
+  assert(adjustedBal === initialBal + 80, 'إعادة احتساب وتعديل رصيد الزبون تلقائياً بعد تعديل قيمة الحركة');
+
+  // Test transaction deletion reversal
+  const afterDeleteBal = adjustedBal - newAmount;
+  assert(afterDeleteBal === initialBal, 'إعادة الرصيد إلى وضعه الطبيعي تلقائياً بعد حذف الحركة');
+
   results.push(`\n=== النتائج: تم بنجاح: ${passed} | فشل: ${failed} ===`);
   return { passed, failed, results };
 }

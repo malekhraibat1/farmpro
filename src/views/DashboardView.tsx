@@ -314,7 +314,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-black text-slate-900">آخر الحركات المالية</h3>
-            <span className="text-xs text-slate-400">سجل القيود</span>
+            <button
+              onClick={() => onNavigate('transactions')}
+              className="text-xs text-cyan-700 hover:underline font-bold"
+            >
+              عرض وتعديل السجلات ←
+            </button>
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200/80 p-4 shadow-sm space-y-3">
@@ -341,12 +346,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             ))}
 
-            <button
-              onClick={() => onNavigate('entities')}
-              className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all text-center"
-            >
-              فتح دفتر الحسابات الكامل
-            </button>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => onNavigate('transactions')}
+                className="flex-1 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-black transition-all text-center shadow-xs"
+              >
+                سجل الحركات والتعديل والحذف
+              </button>
+              <button
+                onClick={() => onNavigate('entities')}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all text-center"
+              >
+                دفتر الحسابات
+              </button>
+            </div>
           </div>
 
           {/* Quick shortcuts widget */}

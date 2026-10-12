@@ -28,6 +28,7 @@ import { ExpensesView } from './views/ExpensesView';
 import { ReportsView } from './views/ReportsView';
 import { SettingsView } from './views/SettingsView';
 import { SuperAdminView } from './views/SuperAdminView';
+import { TransactionsView } from './views/TransactionsView';
 import { SupabaseSyncModal } from './components/SupabaseSyncModal';
 import { PharmacyInstanceManagerModal } from './components/PharmacyInstanceManagerModal';
 import { InstanceLoginModal } from './components/InstanceLoginModal';
@@ -333,6 +334,80 @@ export default function App() {
       createdAt: new Date().toISOString().split('T')[0],
     };
     setEntities(prev => [newEnt, ...prev]);
+    showToast(`تمت إضافة ${newEnt.name} بنجاح`, 'success');
+  };
+
+  // Update Entity
+  const handleUpdateEntity = (updated: Entity) => {
+    setEntities(prev => prev.map(e => (e.id === updated.id ? updated : e)));
+    // Sync entityName on transactions
+    setTransactions(prev =>
+      prev.map(t => (t.entityId === updated.id ? { ...t, entityName: updated.name } : t))
+    );
+    if (selectedEntityForLedger && selectedEntityForLedger.id === updated.id) {
+      setSelectedEntityForLedger(updated);
+    }
+    showToast(`تم تحديث بيانات ${updated.name} بنجاح`, 'success');
+  };
+
+  // Delete Entity
+  const handleDeleteEntity = (entityId: string) => {
+    const target = entities.find(e => e.id === entityId);
+    setEntities(prev => prev.filter(e => e.id !== entityId));
+    if (selectedEntityForLedger && selectedEntityForLedger.id === entityId) {
+      setSelectedEntityForLedger(null);
+    }
+    showToast(`تم حذف حساب ${target ? target.name : ''} بنجاح`, 'info');
+  };
+
+  // Update Transaction
+  const handleUpdateTransaction = (updatedTx: FinancialTransaction) => {
+    const oldTx = transactions.find(t => t.id === updatedTx.id);
+    if (!oldTx) return;
+
+    // Calculate balance difference on entity
+    const oldEffect = oldTx.direction === 'debit' ? oldTx.amount : -oldTx.amount;
+    const newEffect = updatedTx.direction === 'debit' ? updatedTx.amount : -updatedTx.amount;
+    const diff = newEffect - oldEffect;
+
+    setTransactions(prev => prev.map(t => (t.id === updatedTx.id ? updatedTx : t)));
+
+    if (diff !== 0) {
+      setEntities(prev =>
+        prev.map(e => {
+          if (e.id === updatedTx.entityId) {
+            const nextBal = e.currentBalance + diff;
+            return { ...e, currentBalance: nextBal };
+          }
+          return e;
+        })
+      );
+    }
+
+    showToast('تم تحديث الحركة المالية بنجاح', 'success');
+  };
+
+  // Delete Transaction
+  const handleDeleteTransaction = (transactionId: string) => {
+    const targetTx = transactions.find(t => t.id === transactionId);
+    if (!targetTx) return;
+
+    // Reverse financial effect on entity
+    const reversal = targetTx.direction === 'debit' ? -targetTx.amount : targetTx.amount;
+
+    setTransactions(prev => prev.filter(t => t.id !== transactionId));
+
+    setEntities(prev =>
+      prev.map(e => {
+        if (e.id === targetTx.entityId) {
+          const nextBal = e.currentBalance + reversal;
+          return { ...e, currentBalance: nextBal };
+        }
+        return e;
+      })
+    );
+
+    showToast(`تم حذف الحركة ${targetTx.referenceNumber} بنجاح`, 'info');
   };
 
   // Complete a Sale Invoice from POS
@@ -678,10 +753,48 @@ export default function App() {
               settings={settings}
               currentRole={currentRole}
               onAddEntity={handleAddEntity}
+              onUpdateEntity={handleUpdateEntity}
+              onDeleteEntity={handleDeleteEntity}
               onAddTransaction={handleAddTransaction}
+              onUpdateTransaction={handleUpdateTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
               selectedEntityForLedger={selectedEntityForLedger}
               onOpenLedgerModal={handleOpenEntityLedger}
               onCloseLedgerModal={() => setSelectedEntityForLedger(null)}
+            />
+          )}
+
+          {currentTab === 'transactions' && (
+            <TransactionsView
+              transactions={transactions}
+              entities={entities}
+              settings={settings}
+              currentRole={currentRole}
+              onAddTransaction={(entId, amt, type, dir, note, ref, customDate) => {
+                const entity = entities.find(e => e.id === entId);
+                if (!entity) return;
+                const newBalance = dir === 'debit' ? entity.currentBalance + amt : entity.currentBalance - amt;
+                const dateFormatted = customDate || new Date().toISOString().replace('T', ' ').slice(0, 16);
+                const newTx: FinancialTransaction = {
+                  id: `tx-${Date.now()}`,
+                  entityId: entId,
+                  entityName: entity.name,
+                  date: dateFormatted,
+                  amount: amt,
+                  type,
+                  direction: dir,
+                  balanceAfter: newBalance,
+                  referenceNumber: ref || `REF-${Math.floor(1000 + Math.random() * 9000)}`,
+                  note,
+                  recordedBy: currentRole === 'admin' ? 'م. مالك حريبات' : 'صيدلي مناوب',
+                };
+                setTransactions(prev => [newTx, ...prev]);
+                setEntities(prev => prev.map(e => (e.id === entId ? { ...e, currentBalance: newBalance } : e)));
+                showToast('تم تسجيل الحركة بنجاح', 'success');
+              }}
+              onUpdateTransaction={handleUpdateTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
+              onSelectEntity={handleOpenEntityLedger}
             />
           )}
 

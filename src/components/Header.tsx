@@ -171,10 +171,11 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Quick Sale button */}
           <button
             onClick={onNewSaleShortcut}
-            className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white text-xs font-black shadow-md border-2 border-emerald-900 transition-all"
+            style={{ borderColor: '#4e0606' }}
+            className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white text-xs font-black shadow-md border-2 transition-all"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-            <span>فاتورة (F2)</span>
+            <span style={{ color: '#0f0101' }}>فاتورة (F2)</span>
           </button>
 
           {/* Designer Branding button */}

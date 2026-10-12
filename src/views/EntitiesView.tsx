@@ -17,6 +17,10 @@ import {
   AlertCircle,
   TrendingDown,
   TrendingUp,
+  Edit3,
+  Trash2,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 import { Entity, EntityType, FinancialTransaction, AppSettings, TransactionType, UserRole } from '../types';
 import { EntityLedgerModal } from '../components/EntityLedgerModal';
@@ -39,6 +43,10 @@ interface EntitiesViewProps {
   selectedEntityForLedger?: Entity | null;
   onCloseLedgerModal?: () => void;
   onOpenLedgerModal?: (entity: Entity) => void;
+  onUpdateEntity?: (entity: Entity) => void;
+  onDeleteEntity?: (entityId: string) => void;
+  onUpdateTransaction?: (transaction: FinancialTransaction) => void;
+  onDeleteTransaction?: (transactionId: string) => void;
 }
 
 export const EntitiesView: React.FC<EntitiesViewProps> = ({
@@ -51,12 +59,29 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
   selectedEntityForLedger,
   onCloseLedgerModal,
   onOpenLedgerModal,
+  onUpdateEntity,
+  onDeleteEntity,
+  onUpdateTransaction,
+  onDeleteTransaction,
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | EntityType>('all');
   const [balanceFilter, setBalanceFilter] = useState<'all' | 'debtors' | 'creditors' | 'settled'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [activeLedgerEntity, setActiveLedgerEntity] = useState<Entity | null>(null);
+
+  // Edit / Delete Entity states
+  const [editingEntity, setEditingEntity] = useState<Entity | null>(null);
+  const [entityToDelete, setEntityToDelete] = useState<Entity | null>(null);
+
+  // Edit Entity Form State
+  const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState<EntityType>('pharmacy');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editCreditLimit, setEditCreditLimit] = useState('');
+  const [editBalance, setEditBalance] = useState('');
+  const [editNotes, setEditNotes] = useState('');
 
   // New Entity Form State
   const [name, setName] = useState('');
@@ -152,6 +177,52 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
     setNotes('');
     setEntityValidationError('');
     setShowAddModal(false);
+  };
+
+  const handleOpenEditEntity = (ent: Entity) => {
+    setEditingEntity(ent);
+    setEditName(ent.name);
+    setEditType(ent.type);
+    setEditPhone(ent.phone || '');
+    setEditAddress(ent.address || '');
+    setEditCreditLimit(ent.creditLimit.toString());
+    setEditBalance(ent.currentBalance.toString());
+    setEditNotes(ent.notes || '');
+  };
+
+  const handleSaveEditEntity = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEntity || !onUpdateEntity) return;
+
+    const validation = ValidationService.validateEntity({
+      name: editName.trim(),
+      type: editType,
+      phone: editPhone.trim(),
+      address: editAddress.trim(),
+      creditLimit: parseFloat(editCreditLimit) || 0,
+      currentBalance: parseFloat(editBalance) || 0,
+      notes: editNotes.trim(),
+    });
+
+    if (!validation.success) {
+      const issue = validation.error.issues[0];
+      alert(issue ? issue.message : 'يرجى مراجعة بيانات الحساب.');
+      return;
+    }
+
+    const updated: Entity = {
+      ...editingEntity,
+      ...validation.data,
+    };
+
+    onUpdateEntity(updated);
+    setEditingEntity(null);
+  };
+
+  const handleConfirmDeleteEntity = () => {
+    if (!entityToDelete || !onDeleteEntity) return;
+    onDeleteEntity(entityToDelete.id);
+    setEntityToDelete(null);
   };
 
   return (
@@ -446,15 +517,32 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
                   </div>
                 </div>
 
-                {/* Card Action Button -> Opens dedicated account page */}
-                <div className="p-3 bg-slate-50 border-t border-slate-100">
+                {/* Card Action Buttons -> Ledger, Edit, Delete */}
+                <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
                   <button
                     onClick={() => handleOpenLedger(entity)}
-                    className="w-full py-2.5 px-4 rounded-2xl bg-gradient-to-l from-slate-900 to-slate-800 hover:from-cyan-700 hover:to-blue-700 text-white font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2 group"
+                    style={{ color: '#140101' }}
+                    className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-l from-slate-900 to-slate-800 hover:from-cyan-700 hover:to-blue-700 font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 group"
                   >
-                    <FileText className="w-4 h-4 text-cyan-300 group-hover:scale-110 transition-transform" />
-                    <span>فتح صفحة وكشف الحساب التفصيلي</span>
-                    <ChevronLeft className="w-4 h-4" />
+                    <FileText className="w-3.5 h-3.5 text-cyan-300 group-hover:scale-110 transition-transform" />
+                    <span style={{ color: '#140101' }}>كشف الحساب</span>
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenEditEntity(entity)}
+                    className="p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 transition-colors shadow-xs"
+                    title="تعديل بيانات الحساب"
+                  >
+                    <Edit3 className="w-4 h-4 text-cyan-700" />
+                  </button>
+
+                  <button
+                    onClick={() => setEntityToDelete(entity)}
+                    className="p-2 rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-slate-300 hover:border-rose-300 transition-colors shadow-xs"
+                    title="حذف هذا الحساب"
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -627,7 +715,224 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
           settings={settings}
           currentRole={currentRole}
           onAddTransaction={onAddTransaction}
+          onUpdateTransaction={onUpdateTransaction}
+          onDeleteTransaction={onDeleteTransaction}
+          onEditEntity={handleOpenEditEntity}
+          onDeleteEntity={id => onDeleteEntity && onDeleteEntity(id)}
         />
+      )}
+
+      {/* Edit Entity Modal */}
+      {editingEntity && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800">
+            <div className="p-5 bg-gradient-to-l from-slate-900 to-indigo-950 text-white flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-black flex items-center gap-2">
+                  <Edit3 className="w-5 h-5 text-cyan-400" />
+                  <span>تعديل بيانات الحساب / الزبون</span>
+                </h3>
+                <p className="text-xs text-slate-300">
+                  تعديل الاسم، الهاتف، العنوان، سقف الائتمان، والرصيد
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingEntity(null)}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditEntity} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">نوع الكيان / الحساب *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditType('pharmacy')}
+                    className={`py-2 px-3 rounded-xl border font-bold text-center transition-all ${
+                      editType === 'pharmacy'
+                        ? 'border-purple-600 bg-purple-50 text-purple-800 shadow-sm'
+                        : 'border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    صيدلية أخرى
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditType('company')}
+                    className={`py-2 px-3 rounded-xl border font-bold text-center transition-all ${
+                      editType === 'company'
+                        ? 'border-blue-600 bg-blue-50 text-blue-800 shadow-sm'
+                        : 'border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    شركة أدوية / مورد
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditType('customer')}
+                    className={`py-2 px-3 rounded-xl border font-bold text-center transition-all ${
+                      editType === 'customer'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800 shadow-sm'
+                        : 'border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    عميل / زبون دائم
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">الاسم التجاري أو الشخصي *</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-900 font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">رقم الهاتف للتواصل</label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={e => setEditPhone(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">العنوان أو المنطقة</label>
+                  <input
+                    type="text"
+                    value={editAddress}
+                    onChange={e => setEditAddress(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    سقف الائتمان ({settings.currency})
+                  </label>
+                  <input
+                    type="number"
+                    value={editCreditLimit}
+                    onChange={e => setEditCreditLimit(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    الرصيد المالي الحالي (+ لنا / - له)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editBalance}
+                    onChange={e => setEditBalance(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono text-xs font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">ملاحظات وشروط التعامل</label>
+                <textarea
+                  rows={2}
+                  value={editNotes}
+                  onChange={e => setEditNotes(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingEntity(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold shadow-md shadow-cyan-600/20"
+                >
+                  حفظ التعديلات
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Entity Confirmation Modal */}
+      {entityToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800">
+            <div className="p-5 bg-gradient-to-l from-rose-700 to-rose-900 text-white flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6 text-yellow-300" />
+              </div>
+              <div>
+                <h3 className="text-base font-black">تأكيد حذف الحساب نهائياً</h3>
+                <p className="text-xs text-rose-100">تحذير أمني خاص ببيانات الحسابات</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <p className="text-slate-700 font-semibold leading-relaxed">
+                هل أنت متأكد من رغبتك في حذف حساب <strong className="text-slate-900">{entityToDelete.name}</strong>؟
+              </p>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 font-mono text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">النوع:</span>
+                  <span className="font-bold text-slate-800 font-sans">
+                    {entityToDelete.type === 'pharmacy' ? 'صيدلية' : entityToDelete.type === 'company' ? 'شركة أدوية' : 'زبون'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">الرصيد المالي الحالي:</span>
+                  <span className={`font-bold ${entityToDelete.currentBalance !== 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {entityToDelete.currentBalance.toLocaleString()} {settings.currency}
+                  </span>
+                </div>
+              </div>
+
+              {entityToDelete.currentBalance !== 0 && (
+                <p className="text-[11px] text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200 font-bold">
+                  ⚠️ تنبيه هام: هذا الحساب يحتوي على رصيد مالي غير مسوى ({entityToDelete.currentBalance} {settings.currency})! حذف الحساب سيؤثر على توازن الدفتر.
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEntityToDelete(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteEntity}
+                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-md shadow-rose-600/20 flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>تأكيد حذف الحساب</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

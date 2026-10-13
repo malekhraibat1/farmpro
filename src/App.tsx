@@ -683,16 +683,16 @@ export default function App() {
 
       {/* License Expiration Banner if expired and not in Super Admin view */}
       {isLicenseExpired && currentTab !== 'super_admin' && (
-        <div className="bg-gradient-to-r from-rose-600 to-amber-600 text-white px-4 py-2 text-xs flex items-center justify-between shadow-md z-20">
+        <div className="bg-rose-700 text-white px-4 py-2 text-xs flex items-center justify-between shadow-xs border-b border-rose-800 z-20">
           <div className="flex items-center gap-2 font-bold">
-            <AlertCircle className="w-4 h-4 animate-bounce" />
+            <AlertCircle className="w-4 h-4 shrink-0" />
             <span>
               تنبيه الترخيص: فترة اشتراك البرنامج منتهية أو بحاجة لتنشيط. يرجى التواصل مع المهندس مالك حريبات للتجديد.
             </span>
           </div>
           <button
             onClick={handleOpenSuperAdmin}
-            className="px-3 py-1 rounded-xl bg-white text-rose-900 font-black text-xs hover:bg-rose-50 transition-colors shrink-0 flex items-center gap-1"
+            className="px-3 py-1 rounded-xl bg-white text-rose-900 font-bold text-xs hover:bg-rose-50 transition-colors shrink-0 flex items-center gap-1 shadow-xs"
           >
             <Key className="w-3.5 h-3.5" />
             <span>تنشيط النسخة (سوبر أدمن)</span>

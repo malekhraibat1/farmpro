@@ -240,10 +240,10 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 active:scale-95 text-white font-bold text-xs shadow-md shadow-cyan-600/20 transition-all flex items-center gap-2"
+          className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-2"
         >
-          <Plus className="w-4 h-4" />
-          <span>إضافة حساب / كيان جديد</span>
+          <Plus className="w-4 h-4 text-white" />
+          <span className="text-white font-bold">إضافة حساب / كيان جديد</span>
         </button>
       </div>
 
@@ -521,12 +521,11 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
                 <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
                   <button
                     onClick={() => handleOpenLedger(entity)}
-                    style={{ color: '#140101' }}
-                    className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-l from-slate-900 to-slate-800 hover:from-cyan-700 hover:to-blue-700 font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 group"
+                    className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 group"
                   >
-                    <FileText className="w-3.5 h-3.5 text-cyan-300 group-hover:scale-110 transition-transform" />
-                    <span style={{ color: '#140101' }}>كشف الحساب</span>
-                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <FileText className="w-3.5 h-3.5 text-white/90 group-hover:scale-105 transition-transform" />
+                    <span className="text-white font-bold">كشف الحساب</span>
+                    <ChevronLeft className="w-3.5 h-3.5 text-white/75" />
                   </button>
 
                   <button

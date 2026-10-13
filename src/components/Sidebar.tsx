@@ -208,29 +208,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onSelectTab(item.id);
                 if (onCloseMobile) onCloseMobile();
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 isActive
                   ? item.id === 'super_admin'
-                    ? 'bg-amber-600 bg-gradient-to-l from-amber-500 to-yellow-600 text-white shadow-lg shadow-amber-500/30 border-2 border-amber-600 ring-2 ring-amber-400/40'
-                    : 'bg-blue-700 bg-gradient-to-l from-blue-700 to-indigo-800 text-white shadow-lg shadow-blue-700/30 border-2 border-blue-900 ring-2 ring-blue-500/30'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-slate-900 dark:bg-emerald-600 text-white shadow-sm'
                   : item.id === 'super_admin'
-                  ? 'bg-amber-50 text-amber-950 border-2 border-amber-300 hover:bg-amber-100 font-bold'
-                  : 'bg-white dark:bg-slate-800/90 text-slate-950 dark:text-slate-100 border-2 border-slate-200 dark:border-slate-700 hover:border-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750 shadow-xs'
+                  ? 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 font-bold'
+                  : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/80 hover:text-slate-950 font-bold shadow-xs'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <Icon
-                  className={`w-5 h-5 shrink-0 transition-transform ${
+                  className={`w-4 h-4 shrink-0 transition-transform ${
                     isActive
-                      ? 'scale-110 text-white'
+                      ? 'text-white'
                       : item.id === 'super_admin'
                       ? 'text-amber-700'
-                      : 'text-slate-700 dark:text-slate-300'
+                      : 'text-slate-600 dark:text-slate-400'
                   }`}
                 />
                 <span
-                  className={`truncate text-sm ${
-                    isActive ? 'text-white font-black' : 'text-slate-950 dark:text-slate-50 font-black'
+                  className={`truncate text-xs sm:text-sm font-bold ${
+                    isActive ? 'text-white' : 'text-slate-800 dark:text-slate-100'
                   }`}
                 >
                   {item.label}
@@ -238,8 +238,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               {item.badge && (
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-black shrink-0 ${
-                    isActive ? 'bg-white/25 text-white border border-white/40' : item.badgeColor
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                    isActive ? 'bg-white/20 text-white' : item.badgeColor
                   }`}
                 >
                   {item.badge}

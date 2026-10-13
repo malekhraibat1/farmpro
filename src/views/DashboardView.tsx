@@ -97,23 +97,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-300">
       {/* Welcome Banner */}
-      <div className="rounded-3xl bg-gradient-to-l from-slate-900 via-indigo-950 to-cyan-900 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="rounded-2xl bg-slate-900 p-6 sm:p-7 text-white shadow-sm border border-slate-800">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-cyan-200 border border-white/10">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                <span>النظام متزامن ومحمي • تصميم المهندس مالك حريبات</span>
-              </div>
-              <span className="text-xs font-black px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/30">
-                لوحة التحكم الرئيسية
-              </span>
+            <div className="flex items-center gap-2 mb-2 text-xs text-slate-300">
+              <span className="font-semibold text-slate-200">النظام متزامن ومحمي</span>
+              <span>•</span>
+              <span className="text-slate-400">تصميم المهندس مالك حريبات</span>
+              <span>•</span>
+              <span className="text-emerald-400 font-bold">لوحة التحكم</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black">
+            <h2 className="text-2xl sm:text-3xl font-black text-white">
               أهلاً بك في {settings.pharmacyName}
             </h2>
-            <p className="text-sm text-cyan-100 font-medium mt-1 max-w-xl">
+            <p className="text-sm text-slate-300 font-medium mt-1 max-w-xl">
               لوحة التحكم المحاسبية المباشرة لإدارة الصيدلية، كشوفات حسابات الشركات والصيدليات الزميلة، وحركات البيع.
             </p>
           </div>
@@ -121,16 +118,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center gap-2.5">
             <button
               onClick={onNewSale}
-              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 active:scale-95 transition-all flex items-center gap-2"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-sm active:scale-95 transition-all flex items-center gap-2"
             >
-              <ShoppingCart className="w-5 h-5" />
+              <ShoppingCart className="w-4 h-4 text-white" />
               <span>نقطة بيع سريعة (POS)</span>
             </button>
             <button
               onClick={() => onNavigate('entities')}
-              className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm backdrop-blur-md border border-white/15 transition-all flex items-center gap-2"
+              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm border border-slate-700 transition-all flex items-center gap-2"
             >
-              <Users className="w-5 h-5" />
+              <Users className="w-4 h-4 text-white" />
               <span className="hidden sm:inline">دفتر الحسابات</span>
             </button>
           </div>
@@ -349,13 +346,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={() => onNavigate('transactions')}
-                className="flex-1 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-black transition-all text-center shadow-xs"
+                className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all text-center shadow-xs"
               >
                 سجل الحركات والتعديل والحذف
               </button>
               <button
                 onClick={() => onNavigate('entities')}
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all text-center"
+                className="flex-1 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 text-xs font-bold transition-all text-center"
               >
                 دفتر الحسابات
               </button>
@@ -363,8 +360,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* Quick shortcuts widget */}
-          <div className="p-4 rounded-3xl bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-100 text-xs space-y-2">
-            <h4 className="font-bold text-cyan-900">اختصارات التشغيل السريع:</h4>
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+            <h4 className="font-bold text-slate-900">اختصارات التشغيل السريع:</h4>
             <ul className="text-slate-600 space-y-1">
               <li>• مفتاح <strong>F2</strong>: فتح نقطة البيع فورا</li>
               <li>• انقر على أي صيدلية/شركة لعرض كشف الحساب</li>

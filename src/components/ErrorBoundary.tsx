@@ -1,3 +1,5 @@
+import { exportRawDump } from '../services/storage';
+import { logError } from '../services/errorLog';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertCircle, RefreshCw, Smartphone, Phone, Home } from 'lucide-react';
 
@@ -21,6 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    logError(error, 'ErrorBoundary');
     console.error('Pharma Pro Uncaught Error:', error, errorInfo);
   }
 
@@ -28,13 +31,22 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
-  private handleClearAndReload = () => {
+  // تنزيل نسخة احتياطية خام من كل بيانات البرنامج المحفوظة في هذا المتصفح (بدون مسح أي شيء)
+  private handleDownloadBackup = () => {
     try {
-      localStorage.clear();
+      const dump = exportRawDump();
+      const blob = new Blob([JSON.stringify({ type: 'pharma_raw_dump', exportedAt: new Date().toISOString(), data: dump })], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `نسخة_طوارئ_فارما_برو_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (e) {
-      // ignore
+      console.error(e);
     }
-    window.location.reload();
   };
 
   public render() {
@@ -65,10 +77,10 @@ export class ErrorBoundary extends Component<Props, State> {
               </button>
 
               <button
-                onClick={this.handleClearAndReload}
+                onClick={this.handleDownloadBackup}
                 className="w-full py-2.5 rounded-2xl bg-slate-700/60 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center justify-center gap-2"
               >
-                <span>إعادة ضبط الذاكرة المؤقتة وتشغيل البرنامج</span>
+                <span>تنزيل نسخة احتياطية من بياناتي (آمن)</span>
               </button>
             </div>
 

@@ -1,3 +1,5 @@
+import { CryptoService } from './cryptoService';
+import { lockSecondsRemaining, recordFailure, resetThrottle } from './throttle';
 import { AppSettings } from '../types';
 import { defaultLicense, defaultSettings } from './storage';
 
@@ -16,7 +18,10 @@ export interface PharmacyInstance {
   pin?: string; // Optional pin to lock switching
   // Username & Password credentials per instance
   username?: string; // e.g. "admin", "dr_ahmad"
-  password?: string; // e.g. "123456"
+  /** @deprecated نص صريح قديم؛ يُحوَّل تلقائياً إلى تجزئة عند أول دخول ناجح */
+  password?: string;
+  passwordHash?: string;
+  passwordSalt?: string;
   isProtected?: boolean; // Requires username & password to enter instance
   supabaseConfig?: {
     url: string;
@@ -43,7 +48,6 @@ export const DEFAULT_INSTANCE: PharmacyInstance = {
   createdAt: '2026-10-01T00:00:00.000Z',
   lastActiveAt: new Date().toISOString(),
   username: '', // إزالة admin الافتراضي
-  password: '', // إزالة 123 الافتراضي
   isProtected: false,
 };
 
@@ -148,7 +152,7 @@ export class InstanceService {
    */
   static isInstanceAuthenticated(instanceId: string): boolean {
     const inst = this.getInstanceById(instanceId) || (instanceId === 'default' ? DEFAULT_INSTANCE : undefined);
-    if (!inst || !inst.isProtected || !inst.password) {
+    if (!inst || !inst.isProtected || !(inst.passwordHash || inst.password)) {
       return true; // No password protection enabled
     }
     if (inMemorySessionMap[instanceId]) {
@@ -165,24 +169,42 @@ export class InstanceService {
   /**
    * Verifies username & password and authenticates instance session
    */
-  static verifyAndAuthenticate(instanceId: string, usernameInput: string, passwordInput: string): boolean {
+  static async verifyAndAuthenticate(
+    instanceId: string,
+    usernameInput: string,
+    passwordInput: string
+  ): Promise<boolean> {
     const inst = this.getInstanceById(instanceId) || (instanceId === 'default' ? DEFAULT_INSTANCE : undefined);
     if (!inst) return false;
 
-    // لا توجد كلمات مرور افتراضية مثل 123 أو تجاوزات سرية
-    const expectedUser = (inst.username || '').trim().toLowerCase();
-    const expectedPass = (inst.password || '').trim();
-    const inputUser = usernameInput.trim().toLowerCase();
-    const inputPass = passwordInput.trim();
-
-    if (!expectedPass) {
-      // إذا كانت الصيدلية غير محمية بكلمة مرور
-      return true;
+    const hasHash = !!(inst.passwordHash && inst.passwordSalt);
+    const legacyPlain = (inst.password || '').trim();
+    if (!hasHash && !legacyPlain) {
+      return true; // الصيدلية غير محمية بكلمة مرور
     }
 
-    const isMatch = (expectedUser ? inputUser === expectedUser : true) && inputPass === expectedPass;
+    const throttleKey = `inst_${instanceId}`;
+    if (lockSecondsRemaining(throttleKey) > 0) return false;
 
-    if (isMatch) {
+    const expectedUser = (inst.username || '').trim().toLowerCase();
+    const inputUser = usernameInput.trim().toLowerCase();
+    const userOk = expectedUser ? inputUser === expectedUser : true;
+    const inputPass = passwordInput.trim();
+
+    let passOk = false;
+    if (hasHash) {
+      passOk = await CryptoService.verifySecret(inputPass, inst.passwordHash!, inst.passwordSalt!);
+    } else {
+      passOk = inputPass === legacyPlain;
+      if (passOk && userOk) {
+        // ترقية تلقائية: استبدال النص الصريح القديم بتجزئة
+        const h = await CryptoService.hashPassword(inputPass);
+        this.updateInstance(instanceId, { passwordHash: h.hash, passwordSalt: h.salt, password: '' });
+      }
+    }
+
+    if (userOk && passOk) {
+      resetThrottle(throttleKey);
       inMemorySessionMap[instanceId] = true;
       try {
         if (typeof window !== 'undefined' && window.sessionStorage) {
@@ -191,7 +213,30 @@ export class InstanceService {
       } catch (e) {}
       return true;
     }
+    recordFailure(throttleKey);
     return false;
+  }
+
+  /** تعيين/تغيير بيانات الدخول (تُخزَّن كلمة المرور كتجزئة فقط) */
+  static async setCredentials(
+    instanceId: string,
+    params: { username?: string; password?: string; isProtected?: boolean }
+  ): Promise<void> {
+    const updates: Partial<PharmacyInstance> = {};
+    if (params.username !== undefined) updates.username = params.username.trim();
+    if (params.isProtected !== undefined) updates.isProtected = params.isProtected;
+    if (params.password) {
+      const h = await CryptoService.hashPassword(params.password.trim());
+      updates.passwordHash = h.hash;
+      updates.passwordSalt = h.salt;
+      updates.password = '';
+    }
+    this.updateInstance(instanceId, updates);
+  }
+
+  /** ثوانٍ متبقية على فك قفل محاولات الدخول لهذه الصيدلية */
+  static lockSeconds(instanceId: string): number {
+    return lockSecondsRemaining(`inst_${instanceId}`);
   }
 
   /**
@@ -225,7 +270,7 @@ export class InstanceService {
   /**
    * Create a new isolated pharmacy instance
    */
-  static createInstance(params: {
+  static async createInstance(params: {
     pharmacyName: string;
     branchName?: string;
     ownerName: string;
@@ -239,7 +284,7 @@ export class InstanceService {
     isProtected?: boolean;
     initEmpty?: boolean; // if true, don't seed with default items
     supabaseConfig?: { url: string; anonKey: string };
-  }): PharmacyInstance {
+  }): Promise<PharmacyInstance> {
     const slug = (params.customCode || params.pharmacyName)
       .toLowerCase()
       .replace(/[^\w\u0621-\u064A0-9]+/g, '-')
@@ -261,10 +306,15 @@ export class InstanceService {
       lastActiveAt: new Date().toISOString(),
       pin: params.pin?.trim() || '',
       username: params.username?.trim() || '',
-      password: params.password?.trim() || '',
       isProtected: params.isProtected !== undefined ? params.isProtected : false,
       supabaseConfig: params.supabaseConfig,
     };
+
+    if (params.password && params.password.trim()) {
+      const h = await CryptoService.hashPassword(params.password.trim());
+      newInstance.passwordHash = h.hash;
+      newInstance.passwordSalt = h.salt;
+    }
 
     const instances = this.getInstances();
     instances.push(newInstance);

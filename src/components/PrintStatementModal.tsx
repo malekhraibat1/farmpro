@@ -201,7 +201,7 @@ export const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
             </div>
           </div>
 
-          <div className="text-center text-[10px] text-slate-400 pt-4">
+          <div className="text-center text-xs text-slate-400 pt-4">
             تم إصدار هذا الكشف عبر نظام فارما برو المحاسبي • تصميم المهندس مالك حريبات 0594345464
           </div>
         </div>

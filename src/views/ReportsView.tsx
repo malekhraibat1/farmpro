@@ -1,3 +1,6 @@
+import { lineCostOf } from '../services/inventoryService';
+import { round2 } from '../services/saleService';
+import { ComplianceReports } from '../components/ComplianceReports';
 import React from 'react';
 import {
   BarChart3,
@@ -17,6 +20,7 @@ import {
   Entity,
   AppSettings,
   UserRole,
+  Shift,
 } from '../types';
 
 interface ReportsViewProps {
@@ -26,6 +30,7 @@ interface ReportsViewProps {
   entities: Entity[];
   settings: AppSettings;
   currentRole: UserRole;
+  shifts?: Shift[];
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
@@ -35,20 +40,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   entities,
   settings,
   currentRole,
+  shifts = [],
 }) => {
   // Calculations
-  const totalSalesRevenue = sales.reduce((sum, s) => sum + s.finalAmount, 0);
+  // الإيراد = صافي المبيعات بعد الخصم وقبل الضريبة (الضريبة ليست إيراداً للصيدلية)
+  const totalSalesRevenue = round2(sales.reduce((sum, s) => sum + s.finalAmount - (s.tax || 0), 0));
 
-  // Cost of Goods Sold (COGS)
+  // تكلفة البضاعة المباعة: من لقطة التكلفة المسجّلة وقت البيع (وللفواتير القديمة من سعر الشراء الحالي)
   let totalCOGS = 0;
   sales.forEach(s => {
     s.items.forEach(item => {
-      const med = medicines.find(m => m.id === item.medicineId);
-      if (med) {
-        totalCOGS += med.purchasePrice * item.quantity;
-      }
+      totalCOGS += lineCostOf(item, medicines.find(m => m.id === item.medicineId));
     });
   });
+  totalCOGS = round2(totalCOGS);
 
   const grossProfit = totalSalesRevenue - totalCOGS;
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -230,6 +235,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <p className="text-[11px] text-slate-400">فواتير شراء وتوريد لم يتم سدادها بعد</p>
         </div>
       </div>
+
+      <ComplianceReports sales={sales} medicines={medicines} shifts={shifts} settings={settings} />
 
       {/* Footer watermark */}
       <div className="text-center text-xs text-slate-400 pt-4">

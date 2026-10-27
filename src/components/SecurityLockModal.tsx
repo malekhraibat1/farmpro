@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, Unlock, KeyRound, ShieldAlert, UserCheck, Delete, Sparkles, ShieldCheck } from 'lucide-react';
 import { UserRole } from '../types';
 import { CryptoService } from '../services/cryptoService';
+import { lockSecondsRemaining, recordFailure, resetThrottle, formatLock } from '../services/throttle';
+
+const THROTTLE_KEY = 'app_pin';
 
 interface SecurityLockModalProps {
   isOpen: boolean;
@@ -32,56 +35,68 @@ export const SecurityLockModal: React.FC<SecurityLockModalProps> = ({
 }) => {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole>(currentRole);
+  const [lockLeft, setLockLeft] = useState(() => lockSecondsRemaining(THROTTLE_KEY));
+  const [selectedRole, setSelectedRole] = useState<UserRole>(currentRole === 'pharmacist' ? 'admin' : currentRole);
+
+  // عدّاد تنازلي لمدة القفل المؤقت
+  useEffect(() => {
+    if (lockLeft <= 0) return;
+    const t = setInterval(() => setLockLeft(lockSecondsRemaining(THROTTLE_KEY)), 1000);
+    return () => clearInterval(t);
+  }, [lockLeft]);
 
   if (!isOpen) return null;
 
-  const handleDigit = async (digit: string) => {
+  const handleDigit = (digit: string) => {
+    if (lockLeft > 0) return;
     if (pin.length < 8) {
-      const next = pin + digit;
-      setPin(next);
+      setPin(pin + digit);
       setError(false);
-
-      // 1. فحص رمز السوبر أدمن (عبر Hash أو النص المخصص فقط، دون أي رموز افتراضية)
-      let isSuperMatch = false;
-      if (superAdminPinHash && superAdminPinSalt) {
-        isSuperMatch = await CryptoService.verifySecret(next, superAdminPinHash, superAdminPinSalt);
-      } else if (superAdminPin && superAdminPin.trim()) {
-        isSuperMatch = next === superAdminPin.trim();
-      }
-
-      if (isSuperMatch) {
-        onRoleChange('super_admin');
-        onUnlock();
-        if (onOpenSuperAdminDirectly) onOpenSuperAdminDirectly();
-        setPin('');
-        return;
-      }
-
-      // 2. فحص رمز الـ PIN العادي للمدير (عبر Hash المشفر)
-      let isPinMatch = false;
-      if (pincodeHash && pincodeSalt) {
-        isPinMatch = await CryptoService.verifySecret(next, pincodeHash, pincodeSalt);
-      } else if (correctPin && correctPin.trim()) {
-        isPinMatch = next === correctPin.trim();
-      }
-
-      if (isPinMatch) {
-        onRoleChange(selectedRole === 'super_admin' ? 'admin' : selectedRole);
-        onUnlock();
-        setPin('');
-        return;
-      }
-
-      // إذا تجاوز الطول 6 خانات ولم يطابق
-      if (next.length >= 6) {
-        setError(true);
-        setTimeout(() => {
-          setPin('');
-          setError(false);
-        }, 800);
-      }
     }
+  };
+
+  // كل ضغطة على "دخول" = محاولة واحدة. بعد 5 محاولات خاطئة يُقفل الإدخال مؤقتاً.
+  const handleSubmit = async () => {
+    if (lockLeft > 0 || pin.length < 4) return;
+    const entered = pin;
+
+    // 1. رمز السوبر أدمن
+    let isSuperMatch = false;
+    if (superAdminPinHash && superAdminPinSalt) {
+      isSuperMatch = await CryptoService.verifySecret(entered, superAdminPinHash, superAdminPinSalt);
+    } else if (superAdminPin && superAdminPin.trim()) {
+      isSuperMatch = entered === superAdminPin.trim();
+    }
+    if (isSuperMatch) {
+      resetThrottle(THROTTLE_KEY);
+      onRoleChange('super_admin');
+      onUnlock();
+      if (onOpenSuperAdminDirectly) onOpenSuperAdminDirectly();
+      setPin('');
+      return;
+    }
+
+    // 2. رمز المدير
+    let isPinMatch = false;
+    if (pincodeHash && pincodeSalt) {
+      isPinMatch = await CryptoService.verifySecret(entered, pincodeHash, pincodeSalt);
+    } else if (correctPin && correctPin.trim()) {
+      isPinMatch = entered === correctPin.trim();
+    }
+    if (isPinMatch) {
+      resetThrottle(THROTTLE_KEY);
+      onRoleChange(selectedRole === 'super_admin' ? 'admin' : selectedRole);
+      onUnlock();
+      setPin('');
+      return;
+    }
+
+    setError(true);
+    setLockLeft(recordFailure(THROTTLE_KEY));
+    setTimeout(() => {
+      setPin('');
+      setError(false);
+    }, 700);
   };
 
   const handleBackspace = () => {
@@ -157,7 +172,7 @@ export const SecurityLockModal: React.FC<SecurityLockModalProps> = ({
 
         {/* PIN Indicators */}
         <div className="flex justify-center gap-3 my-2">
-          {[0, 1, 2, 3].map(i => (
+          {Array.from({ length: Math.max(4, pin.length) }, (_, i) => i).map(i => (
             <div
               key={i}
               className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
@@ -173,7 +188,12 @@ export const SecurityLockModal: React.FC<SecurityLockModalProps> = ({
           ))}
         </div>
 
-        {error && <p className="text-xs text-rose-500 font-bold">الرمز السري غير صحيح، حاول ثانية</p>}
+        {error && <p className="text-xs text-rose-600 font-bold">الرمز السري غير صحيح، حاول ثانية</p>}
+        {lockLeft > 0 && (
+          <p role="alert" className="text-xs text-amber-700 font-bold">
+            محاولات خاطئة كثيرة. انتظر {formatLock(lockLeft)} ثم أعد المحاولة.
+          </p>
+        )}
 
         {/* Numpad */}
         <div className="grid grid-cols-3 gap-2.5 max-w-[240px] mx-auto">
@@ -205,6 +225,14 @@ export const SecurityLockModal: React.FC<SecurityLockModalProps> = ({
             <Delete className="w-5 h-5" />
           </button>
         </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={pin.length < 4 || lockLeft > 0}
+          className="w-full max-w-[240px] mx-auto h-12 rounded-2xl bg-cyan-700 hover:bg-cyan-800 disabled:bg-slate-200 disabled:text-slate-500 text-white font-black text-sm transition-all block"
+        >
+          دخول
+        </button>
 
         {/* Fast unlock as staff */}
         <div className="pt-2 border-t border-slate-100">

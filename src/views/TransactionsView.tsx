@@ -582,7 +582,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                       {/* Transaction Type Badge */}
                       <td className="py-3 px-3 whitespace-nowrap">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-black border ${
                             tx.type === 'invoice'
                               ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200'
                               : tx.type === 'purchase'

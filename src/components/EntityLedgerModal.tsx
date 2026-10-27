@@ -277,7 +277,7 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
                   }`}
                 >
                   {Math.abs(entity.currentBalance).toLocaleString()} {settings.currency}{' '}
-                  <span className="text-[10px] font-normal">
+                  <span className="text-xs font-normal">
                     {entity.currentBalance > 0
                       ? '(مستحق لنا / مدين)'
                       : entity.currentBalance < 0
@@ -320,7 +320,7 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
                     style={{ width: `${creditUsagePercent}%` }}
                   />
                 </div>
-                <div className="text-[10px] text-slate-400 mt-1 text-left">
+                <div className="text-xs text-slate-400 mt-1 text-left">
                   مستهلك: {creditUsagePercent}%
                 </div>
               </div>
@@ -514,7 +514,7 @@ export const EntityLedgerModal: React.FC<EntityLedgerModalProps> = ({
                         </td>
                         <td className="py-3 px-3.5 font-bold whitespace-nowrap">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] ${
+                            className={`px-2 py-0.5 rounded-full text-xs ${
                               tx.type === 'invoice'
                                 ? 'bg-amber-100 text-amber-800'
                                 : tx.type === 'purchase'

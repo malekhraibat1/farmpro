@@ -47,7 +47,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       amount: amountNum,
       date,
       notes: notes.trim(),
-      recordedBy: currentRole === 'admin' ? 'م. مالك حريبات' : 'صيدلي مناوب',
+      recordedBy: (currentRole === 'pharmacist' || currentRole === 'accountant' ? 'صيدلي مناوب' : (settings.ownerName || 'المدير')),
     });
 
     setTitle('');
@@ -173,7 +173,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                   </td>
                   <td className="py-3 px-4 font-black text-slate-900">{exp.title}</td>
                   <td className="py-3 px-4">
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold text-[10px]">
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold text-xs">
                       {getCategoryLabel(exp.category)}
                     </span>
                   </td>

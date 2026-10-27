@@ -143,7 +143,7 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-black tracking-wider bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-500/30">
+                <span className="text-xs uppercase font-black tracking-wider bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-500/30">
                   نظام التزامن المباشر الحقيقي
                 </span>
                 {supabaseConfig.isConnected ? (
@@ -289,7 +289,7 @@ export const DeviceSyncModal: React.FC<DeviceSyncModalProps> = ({
                     type="text"
                     readOnly
                     value={shareableUrl}
-                    className="flex-1 p-2 rounded-xl border border-slate-200 bg-white font-mono text-[10px] text-slate-600 dir-ltr truncate"
+                    className="flex-1 p-2 rounded-xl border border-slate-200 bg-white font-mono text-xs text-slate-600 dir-ltr truncate"
                   />
                   <button
                     onClick={handleCopyLink}

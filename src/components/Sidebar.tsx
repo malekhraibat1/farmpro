@@ -16,6 +16,7 @@ import {
   Key,
   Sparkles,
   History,
+  PackagePlus,
 } from 'lucide-react';
 import { AppSettings, UserRole } from '../types';
 
@@ -25,6 +26,7 @@ export type NavTab =
   | 'transactions'
   | 'pos'
   | 'inventory'
+  | 'purchases'
   | 'expenses'
   | 'reports'
   | 'settings'
@@ -74,21 +76,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'entities' as NavTab,
-      label: 'دفتر الحسابات والشركات',
+      label: 'دفتر الحسابات',
       icon: Users,
       badge: 'الرئيسي',
       badgeColor: 'bg-indigo-100 text-indigo-700',
     },
     {
       id: 'transactions' as NavTab,
-      label: 'سجل الحركات والمعاملات',
+      label: 'سجل الحركات',
       icon: History,
       badge: 'سجلات',
       badgeColor: 'bg-cyan-100 text-cyan-800 font-bold',
     },
     {
       id: 'pos' as NavTab,
-      label: 'نقطة البيع (الكاشير)',
+      label: 'نقطة البيع',
       icon: ShoppingCart,
       badge: 'سريع',
       badgeColor: 'bg-emerald-100 text-emerald-700',
@@ -101,14 +103,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badgeColor: 'bg-amber-100 text-amber-700',
     },
     {
+      id: 'purchases' as NavTab,
+      label: 'المشتريات',
+      icon: PackagePlus,
+      badge: null,
+      adminOnly: true,
+    },
+    {
       id: 'expenses' as NavTab,
-      label: 'المصاريف وسندات الصرف',
+      label: 'المصاريف والسندات',
       icon: Receipt,
       badge: null,
     },
     {
       id: 'reports' as NavTab,
-      label: 'التقارير المالية والأرباح',
+      label: 'التقارير والأرباح',
       icon: BarChart3,
       badge: null,
       adminOnly: true,
@@ -122,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'super_admin' as NavTab,
-      label: 'بوابة السوبر أدمن (التراخيص)',
+      label: 'السوبر أدمن',
       icon: Key,
       badge: currentRole === 'super_admin' ? 'نشط' : 'م. مالك',
       badgeColor: 'bg-amber-100 text-amber-900 font-bold',
@@ -169,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={onSwitchRole}
-                className="px-2.5 py-1 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-[10px] shadow-xs transition shrink-0"
+                className="px-2.5 py-1 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs shadow-xs transition shrink-0"
                 title="إدخال رمز PIN للانتقال لوضع المدير"
               >
                 دخول كمدير 🔑
@@ -186,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={onSwitchRole}
-                className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-black text-white font-black text-[10px] shadow-xs transition shrink-0"
+                className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-black text-white font-black text-xs shadow-xs transition shrink-0"
                 title="العودة لوضع الصيدلي العادي"
               >
                 وضع الكاشير 👤
@@ -238,7 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               {item.badge && (
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                  className={`text-xs px-2 py-0.5 rounded-full font-bold shrink-0 ${
                     isActive ? 'bg-white/20 text-white' : item.badgeColor
                   }`}
                 >
@@ -251,7 +260,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Quick Tools: Themes & Device Sync & Pharmacy Isolation */}
         <div className="pt-2 pb-1 space-y-1">
-          <div className="text-[10px] font-black text-slate-600 dark:text-slate-300 px-3 py-1 uppercase tracking-wider">
+          <div className="text-xs font-black text-slate-600 dark:text-slate-300 px-3 py-1 uppercase tracking-wider">
             المظهر والأجهزة والمقرات
           </div>
           <div className="grid grid-cols-2 gap-1.5 px-1">
@@ -315,7 +324,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Award className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] text-cyan-300 font-bold">برمجة وتطوير</div>
+            <div className="text-xs text-cyan-300 font-bold">برمجة وتطوير</div>
             <div className="text-xs font-black">{settings.designerName}</div>
           </div>
         </div>

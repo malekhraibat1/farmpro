@@ -656,7 +656,7 @@ ${origin}
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <span className="text-xs text-amber-300 font-bold">بطاقة رخصة النسخة</span>
                 <span
-                  className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${
+                  className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
                     isActivated ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
                   }`}
                 >
@@ -703,7 +703,7 @@ ${origin}
                 </span>
               </div>
 
-              <div className="text-[10px] text-slate-400 pt-1">
+              <div className="text-xs text-slate-400 pt-1">
                 صادر ومعتمد حصرياً بواسطة {settings.designerName} ({settings.designerPhone})
               </div>
             </div>
@@ -726,7 +726,7 @@ ${origin}
                   <Share2 className="w-4 h-4 text-emerald-600" />
                   <span>تسليم ومشاركة النسخة للزبون 📲</span>
                 </h5>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+                <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
                   جاهز للإرسال
                 </span>
               </div>

@@ -66,7 +66,7 @@ export const FirstTimeSetupModal: React.FC<FirstTimeSetupModalProps> = ({
 
     try {
       // 1. Hash password with PBKDF2-HMAC-SHA256 & Salt
-      const passwordHashResult = await CryptoService.hashSecret(adminPassword);
+      const passwordHashResult = await CryptoService.hashPassword(adminPassword);
 
       // 2. Hash PIN with PBKDF2-HMAC-SHA256 & Salt
       const pincodeHashResult = await CryptoService.hashSecret(pincode);
@@ -106,13 +106,13 @@ export const FirstTimeSetupModal: React.FC<FirstTimeSetupModalProps> = ({
             <ShieldCheck className="w-8 h-8 text-cyan-400 animate-pulse" />
           </div>
 
-          <span className="text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-3 py-0.5 rounded-full inline-block mb-1.5">
-            إعداد الحماية لأول مرة (Security Setup Wizard)
+          <span className="text-xs font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-3 py-0.5 rounded-full inline-block mb-1.5">
+            إعداد الحماية لأول مرة
           </span>
 
           <h2 className="text-xl font-black tracking-tight">تهيئة الأمان وكلمات المرور للصيدلية</h2>
           <p className="text-xs text-slate-300 mt-1 max-w-md mx-auto leading-relaxed">
-            وفقاً لمعايير الأمان المتقدمة، تم إلغاء كافة كلمات المرور الافتراضية (مثل 1234 و 7777). يرجى تعيين بيانات الدخول الخاصة بمدير الصيدلية الآن.
+            لحماية بيانات صيدليتك، اختر الآن اسم مستخدم وكلمة مرور قوية ورمز PIN للمدير. لا توجد كلمات مرور افتراضية.
           </p>
         </div>
 
@@ -235,8 +235,8 @@ export const FirstTimeSetupModal: React.FC<FirstTimeSetupModalProps> = ({
                   <KeyRound className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   <span>رمز PIN السريع لشاشة القفل والتبديل (4 إلى 8 أرقام)</span>
                 </div>
-                <span className="text-[10px] text-amber-800 dark:text-amber-300 font-bold">
-                  يمنع 1234 و 7777
+                <span className="text-xs text-amber-800 dark:text-amber-300 font-bold">
+                  رموز مثل 1234 غير مسموحة
                 </span>
               </div>
 

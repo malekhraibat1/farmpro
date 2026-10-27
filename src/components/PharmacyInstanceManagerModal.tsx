@@ -71,7 +71,7 @@ export function PharmacyInstanceManagerModal({
   const [formAddress, setFormAddress] = useState('');
   const [formCode, setFormCode] = useState('');
   const [formUsername, setFormUsername] = useState('admin');
-  const [formPassword, setFormPassword] = useState('123456');
+  const [formPassword, setFormPassword] = useState('');
   const [formIsProtected, setFormIsProtected] = useState(true);
   const [formInitEmpty, setFormInitEmpty] = useState(true);
   const [formSupabaseUrl, setFormSupabaseUrl] = useState('');
@@ -140,7 +140,7 @@ export function PharmacyInstanceManagerModal({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  const handleCreateInstance = (e: React.FormEvent) => {
+  const handleCreateInstance = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
@@ -155,7 +155,7 @@ export function PharmacyInstanceManagerModal({
     }
 
     try {
-      const newInst = InstanceService.createInstance({
+      const newInst = await InstanceService.createInstance({
         pharmacyName: formPharmacyName.trim(),
         branchName: formBranchName.trim(),
         ownerName: formOwnerName.trim(),
@@ -163,7 +163,7 @@ export function PharmacyInstanceManagerModal({
         address: formAddress.trim(),
         customCode: formCode.trim().toUpperCase(),
         username: formUsername.trim() || 'admin',
-        password: formPassword.trim() || '123456',
+        password: formPassword.trim(),
         isProtected: formIsProtected,
         initEmpty: formInitEmpty,
         supabaseConfig:
@@ -271,17 +271,22 @@ export function PharmacyInstanceManagerModal({
   const handleOpenEditCredentials = () => {
     if (currentInstance) {
       setEditUsername(currentInstance.username || 'admin');
-      setEditPassword(currentInstance.password || '123456');
+      setEditPassword('');
       setEditIsProtected(currentInstance.isProtected !== false);
       setIsEditingCredentials(true);
     }
   };
 
-  const handleSaveCredentials = (e: React.FormEvent) => {
+  const handleSaveCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
-    InstanceService.updateInstance(activeInstanceId, {
+    if (editIsProtected && editPassword && editPassword.trim().length < 6) {
+      alert('كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
+      return;
+    }
+    // اترك كلمة المرور فارغة للإبقاء على الحالية؛ تُخزَّن كتجزئة وليس كنص
+    await InstanceService.setCredentials(activeInstanceId, {
       username: editUsername.trim() || 'admin',
-      password: editPassword.trim() || '123456',
+      password: editPassword.trim() || undefined,
       isProtected: editIsProtected,
     });
     loadInstances();
@@ -296,7 +301,7 @@ export function PharmacyInstanceManagerModal({
     const cloudInfo = inst.supabaseConfig?.url
       ? `\n☁️ السيرفر السحابي الخاص: متصل ومستقل (${inst.supabaseConfig.url})\n⚡ ميزة: يتصل تلقائياً بالسيرفر السحابي فور فتح الرابط!`
       : `\n💻 وضع التشغيل: محلي معزول`;
-    const text = `🏢 بيانات الدخول والتشغيل لصيدلية: ${inst.pharmacyName}\n🔗 الرابط المباشر:\n${url}\n\n👤 اسم المستخدم: ${inst.username || 'admin'}\n🔑 كلمة المرور: ${inst.password || '123456'}\n🛡️ كود النسخة: ${inst.code}${cloudInfo}`;
+    const text = `🏢 بيانات الدخول والتشغيل لصيدلية: ${inst.pharmacyName}\n🔗 الرابط المباشر:\n${url}\n\n👤 اسم المستخدم: ${inst.username || 'admin'}\n🔑 كلمة المرور: (يُرسلها لك المدير بشكل منفصل)\n🛡️ كود النسخة: ${inst.code}${cloudInfo}`;
     navigator.clipboard.writeText(text);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
@@ -554,11 +559,11 @@ export function PharmacyInstanceManagerModal({
                       <Lock className="w-4 h-4 text-indigo-600" />
                       <span>حماية النسخة (اسم المستخدم وكلمة السر)</span>
                       {currentInstance.isProtected !== false ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                           ✓ محمية بكلمة مرور
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
+                        <span className="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-600">
                           مفتوحة بدون قفل
                         </span>
                       )}
@@ -686,11 +691,11 @@ export function PharmacyInstanceManagerModal({
                       <Database className="w-4 h-4 text-emerald-600" />
                       <span>سيرفر Supabase السحابي المخصص لهذه الصيدلية</span>
                       {currentInstance.supabaseConfig?.url ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                           ✓ متصل ومفعل
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                        <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                           وضع محلي (أوفلاين)
                         </span>
                       )}
@@ -725,7 +730,7 @@ export function PharmacyInstanceManagerModal({
                     <div className="font-mono text-emerald-900 dark:text-emerald-200 truncate" dir="ltr">
                       {currentInstance.supabaseConfig.url}
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-800 font-bold text-emerald-950 dark:text-emerald-100 shrink-0">
+                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-800 font-bold text-emerald-950 dark:text-emerald-100 shrink-0">
                       قاعدة بيانات معزولة
                     </span>
                   </div>
@@ -1026,7 +1031,7 @@ export function PharmacyInstanceManagerModal({
                     <div>
                       <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                         <span>🟢 قاعدة بيانات فارغة تماماً</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200">
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200">
                           موصى به
                         </span>
                       </div>
@@ -1117,7 +1122,7 @@ export function PharmacyInstanceManagerModal({
                               {inst.code}
                             </span>
                             {isActive && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white flex items-center gap-1">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500 text-white flex items-center gap-1">
                                 <Check className="w-3 h-3" />
                                 نشطة الآن
                               </span>
@@ -1223,13 +1228,13 @@ export function PharmacyInstanceManagerModal({
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => handleDeleteInstance(inst.id)}
-                                  className="px-2 py-1 bg-rose-600 text-white rounded text-[10px] font-bold"
+                                  className="px-2 py-1 bg-rose-600 text-white rounded text-xs font-bold"
                                 >
                                   تأكيد الحذف
                                 </button>
                                 <button
                                   onClick={() => setConfirmDeleteId(null)}
-                                  className="px-2 py-1 bg-slate-200 text-slate-700 rounded text-[10px]"
+                                  className="px-2 py-1 bg-slate-200 text-slate-700 rounded text-xs"
                                 >
                                   إلغاء
                                 </button>
@@ -1328,7 +1333,7 @@ export function PharmacyInstanceManagerModal({
                   <div>
                     <h4 className="font-black text-white text-base flex items-center gap-2">
                       <span>🚀 خطوات رفع النسخ على موقع Vercel وتخصيص رابط لكل صيدلية</span>
-                      <span className="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-full">
+                      <span className="text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-full">
                         دليل شامل
                       </span>
                     </h4>

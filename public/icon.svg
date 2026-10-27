@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#0e2a47" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="cross-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
+  </defs>
+
+  <!-- App Rounded Background for Desktop / PWA -->
+  <rect width="512" height="512" rx="112" fill="url(#bg-grad)" />
+  <rect width="504" height="504" x="4" y="4" rx="108" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="8" />
+
+  <!-- Medical Cross / Shield Icon -->
+  <g filter="url(#shadow)">
+    <!-- Central Modern Plus / Cross -->
+    <path d="M 216 120 C 216 106.7 226.7 96 240 96 L 272 96 C 285.3 96 296 106.7 296 120 L 296 216 L 392 216 C 405.3 216 416 226.7 416 240 L 416 272 C 416 285.3 405.3 296 392 296 L 296 296 L 296 392 C 296 405.3 285.3 416 272 416 L 240 416 C 226.7 416 216 405.3 216 392 L 216 296 L 120 296 C 106.7 296 96 285.3 96 272 L 96 240 C 96 226.7 106.7 216 120 216 L 216 216 Z" fill="url(#cross-grad)" />
+
+    <!-- Sleek Capsule Accent across center -->
+    <g transform="translate(256, 256) rotate(-35) translate(-256, -256)">
+      <rect x="226" y="160" width="60" height="192" rx="30" fill="#ffffff" opacity="0.95" />
+      <path d="M 226 256 L 286 256 L 286 322 C 286 338.5 272.5 352 256 352 C 239.5 352 226 338.5 226 322 Z" fill="#0284c7" />
+    </g>
+  </g>
+</svg>

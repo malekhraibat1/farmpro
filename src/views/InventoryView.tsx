@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import {
   Boxes,
   Plus,
@@ -14,10 +14,17 @@ import {
   Filter,
   FileSpreadsheet,
   Download,
+  History,
+  ClipboardCheck,
+  Undo2,
+  ShoppingBasket,
 } from 'lucide-react';
-import { Medicine, AppSettings, UserRole } from '../types';
-import { ExcelImportModal } from '../components/ExcelImportModal';
+import { Medicine, AppSettings, UserRole, StockMovement, Entity, SaleInvoice } from '../types';
+const ExcelImportModal = lazy(() => import('../components/ExcelImportModal').then(m => ({ default: m.ExcelImportModal })));
 import { ValidationService } from '../services/validationService';
+import { MovementsModal, StocktakeModal, SupplierReturnModal, ReorderModal } from '../components/StockToolsModals';
+import { inventoryValue, matchesQuery, normalizeMedicine, supportsRetail } from '../services/inventoryService';
+import { uid } from '../services/saleService';
 
 interface InventoryViewProps {
   medicines: Medicine[];
@@ -27,6 +34,15 @@ interface InventoryViewProps {
   onUpdateMedicine: (med: Medicine) => void;
   onDeleteMedicine: (id: string) => void;
   onBulkImportMedicines?: (newMeds: Medicine[], updatedMeds: Medicine[]) => void;
+  movements: StockMovement[];
+  entities: Entity[];
+  sales: SaleInvoice[];
+  onRemoveStock: (
+    items: { medicineId: string; batchId: string; packs: number }[],
+    kind: 'supplier_return' | 'write_off',
+    opts: { entityId?: string; note?: string }
+  ) => { ok: boolean; error?: string; value: number };
+  onStocktake: (counts: { medicineId: string; batchId: string; counted: number }[]) => number;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
@@ -37,6 +53,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   onUpdateMedicine,
   onDeleteMedicine,
   onBulkImportMedicines,
+  movements,
+  entities,
+  sales,
+  onRemoveStock,
+  onStocktake,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'near_expiry' | 'expired' | 'low_stock'>('all');
@@ -60,6 +81,22 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [batchNumber, setBatchNumber] = useState(`BATCH-${Math.floor(100 + Math.random() * 900)}`);
   const [expiryDate, setExpiryDate] = useState('2028-12-31');
   const [manufacturer, setManufacturer] = useState('');
+  const [dosageForm, setDosageForm] = useState('');
+  const [strength, setStrength] = useState('');
+  const [requiresPrescription, setRequiresPrescription] = useState(false);
+  const [isControlled, setIsControlled] = useState(false);
+  const [unitsPerPack, setUnitsPerPack] = useState('1');
+  const [subUnitName, setSubUnitName] = useState('');
+  const [subUnitPrice, setSubUnitPrice] = useState('');
+  const [minSellPrice, setMinSellPrice] = useState('');
+  type EditBatch = { id: string; batchNumber: string; expiryDate: string; quantity: string; purchasePrice: string };
+  const [editBatches, setEditBatches] = useState<EditBatch[]>([]);
+  const [movementsFor, setMovementsFor] = useState<Medicine | null>(null);
+  const [showStocktake, setShowStocktake] = useState(false);
+  const [showReturns, setShowReturns] = useState(false);
+  const [showReorder, setShowReorder] = useState(false);
+  const canEdit = currentRole !== 'pharmacist';
+  const nearDays = settings.nearExpiryDays ?? 90;
 
   // Categories list
   const categories = Array.from(new Set(medicines.map(m => m.category))).filter(Boolean);
@@ -67,18 +104,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   // Dates for filtering
   const now = new Date();
   const ninetyDays = new Date();
-  ninetyDays.setDate(now.getDate() + 90);
+  ninetyDays.setDate(now.getDate() + nearDays);
 
   const filteredMedicines = medicines.filter(med => {
-    // Search
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      const matchName = med.tradeName.toLowerCase().includes(q);
-      const matchGeneric = med.genericName?.toLowerCase().includes(q);
-      const matchBarcode = med.barcode.includes(q);
-      const matchManuf = med.manufacturer?.toLowerCase().includes(q);
-      if (!matchName && !matchGeneric && !matchBarcode && !matchManuf) return false;
-    }
+    // Search (يتجاهل التشكيل واختلاف الهمزات)
+    if (searchTerm && !matchesQuery(med, searchTerm)) return false;
 
     // Category
     if (selectedCategory !== 'all' && med.category !== selectedCategory) return false;
@@ -107,6 +137,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setBatchNumber(`BATCH-${Math.floor(100 + Math.random() * 900)}`);
     setExpiryDate('2028-12-31');
     setManufacturer('');
+    setDosageForm('');
+    setStrength('');
+    setRequiresPrescription(false);
+    setIsControlled(false);
+    setUnitsPerPack('1');
+    setSubUnitName('');
+    setSubUnitPrice('');
+    setMinSellPrice('');
+    setEditBatches([]);
     setValidationError('');
     setShowAddModal(true);
   };
@@ -125,6 +164,23 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setBatchNumber(med.batchNumber);
     setExpiryDate(med.expiryDate);
     setManufacturer(med.manufacturer);
+    setDosageForm(med.dosageForm || '');
+    setStrength(med.strength || '');
+    setRequiresPrescription(!!med.requiresPrescription);
+    setIsControlled(!!med.isControlled);
+    setUnitsPerPack(String(med.unitsPerPack || 1));
+    setSubUnitName(med.subUnitName || '');
+    setSubUnitPrice(med.subUnitPrice ? String(med.subUnitPrice) : '');
+    setMinSellPrice(med.minSellPrice ? String(med.minSellPrice) : '');
+    setEditBatches(
+      (normalizeMedicine(med).batches || []).map(b => ({
+        id: b.id,
+        batchNumber: b.batchNumber,
+        expiryDate: b.expiryDate,
+        quantity: String(b.quantity),
+        purchasePrice: String(b.purchasePrice),
+      }))
+    );
     setValidationError('');
     setShowAddModal(true);
   };
@@ -133,10 +189,49 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     e.preventDefault();
     setValidationError('');
 
-    const sQty = parseInt(stockQuantity) || 0;
     const mQty = parseInt(minQuantity) || 0;
-    const pPrice = parseFloat(purchasePrice) || 0;
     const sPrice = parseFloat(sellPrice) || 0;
+    const upp = parseInt(unitsPerPack) || 1;
+    if (upp > 1 && !subUnitName.trim()) {
+      setValidationError('أدخل اسم الوحدة الصغرى (شريط/حبة...) لأن العبوة تُباع بالتجزئة.');
+      return;
+    }
+
+    // الكمية والتكلفة والصلاحية: من التشغيلات في وضع التعديل، ومن الحقول المفردة عند الإضافة
+    let sQty = parseInt(stockQuantity) || 0;
+    let pPrice = parseFloat(purchasePrice) || 0;
+    let expiry = expiryDate;
+    let batchNo = batchNumber.trim();
+    let batchesOut: Medicine['batches'] | undefined = undefined;
+
+    if (editingMed) {
+      if (editBatches.length === 0) {
+        setValidationError('أضف تشغيلة واحدة على الأقل (ولو بكمية صفر).');
+        return;
+      }
+      for (const b of editBatches) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(b.expiryDate)) {
+          setValidationError('أدخل تاريخ انتهاء صالحاً لكل تشغيلة.');
+          return;
+        }
+        if ((parseInt(b.quantity) || 0) < 0 || (parseFloat(b.purchasePrice) || 0) < 0) {
+          setValidationError('الكمية وسعر الشراء في التشغيلات لا يمكن أن يكونا سالبين.');
+          return;
+        }
+      }
+      batchesOut = editBatches.map(b => ({
+        id: b.id,
+        batchNumber: b.batchNumber.trim(),
+        expiryDate: b.expiryDate,
+        quantity: Math.max(0, parseInt(b.quantity) || 0),
+        purchasePrice: Math.max(0, parseFloat(b.purchasePrice) || 0),
+      }));
+      const agg = normalizeMedicine({ ...editingMed, batches: batchesOut } as Medicine);
+      sQty = agg.stockQuantity;
+      pPrice = agg.purchasePrice;
+      expiry = agg.expiryDate;
+      batchNo = agg.batchNumber;
+    }
 
     const validation = ValidationService.validateMedicine({
       barcode: barcode.trim(),
@@ -148,14 +243,29 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       minQuantity: mQty,
       purchasePrice: pPrice,
       sellPrice: sPrice,
-      batchNumber: batchNumber.trim(),
-      expiryDate,
+      batchNumber: batchNo,
+      expiryDate: expiry,
       manufacturer: manufacturer.trim(),
+      dosageForm: dosageForm.trim(),
+      strength: strength.trim(),
+      requiresPrescription,
+      isControlled,
+      unitsPerPack: upp,
+      subUnitName: subUnitName.trim(),
+      subUnitPrice: parseFloat(subUnitPrice) || 0,
+      minSellPrice: parseFloat(minSellPrice) || 0,
     });
 
     if (!validation.success) {
       const issue = validation.error.issues[0];
       setValidationError(issue ? issue.message : 'يرجى مراجعة بيانات الصنف المدخلة.');
+      return;
+    }
+
+    // لا نسمح بتكرار الباركود
+    const dup = medicines.find(m => m.barcode === barcode.trim() && m.id !== editingMed?.id);
+    if (dup) {
+      setValidationError(`الباركود مستخدم لصنف آخر: ${dup.tradeName}`);
       return;
     }
 
@@ -165,9 +275,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       onUpdateMedicine({
         ...editingMed,
         ...validatedData,
-      });
+        batches: batchesOut,
+      } as Medicine);
     } else {
-      onAddMedicine(validatedData);
+      onAddMedicine(validatedData as Omit<Medicine, 'id'>);
     }
 
     setShowAddModal(false);
@@ -212,14 +323,41 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             </button>
           )}
 
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-600/20 active:scale-95 transition-all flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>إضافة دواء / صنف جديد</span>
-          </button>
+          {canEdit && (
+            <button
+              onClick={handleOpenAdd}
+              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-600/20 active:scale-95 transition-all flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>إضافة دواء / صنف جديد</span>
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* أدوات المخزون */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={() => setShowReorder(true)} className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-xs font-black hover:bg-slate-100 flex items-center gap-1.5">
+          <ShoppingBasket className="w-4 h-4" /> قائمة النواقص واقتراح الطلب
+        </button>
+        {canEdit && (
+          <>
+            <button onClick={() => setShowReturns(true)} className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-xs font-black hover:bg-slate-100 flex items-center gap-1.5">
+              <Undo2 className="w-4 h-4" /> مرتجعات الشركات والإتلاف
+            </button>
+            <button onClick={() => setShowStocktake(true)} className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-xs font-black hover:bg-slate-100 flex items-center gap-1.5">
+              <ClipboardCheck className="w-4 h-4" /> جرد المخزون
+            </button>
+            {(() => {
+              const v = inventoryValue(medicines);
+              return (
+                <span className="ms-auto px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800">
+                  قيمة المخزون: بالتكلفة <b className="font-mono">{v.cost.toFixed(2)}</b> · بسعر البيع <b className="font-mono">{v.retail.toFixed(2)}</b> {settings.currency}
+                </span>
+              );
+            })()}
+          </>
+        )}
       </div>
 
       {/* Success Notification Banner for Excel Import */}
@@ -373,10 +511,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                       </td>
                       <td className="py-3 px-4">
                         <div className="font-black text-slate-900 text-sm">{med.tradeName}</div>
-                        <div className="text-[11px] text-slate-400">{med.genericName}</div>
+                        <div className="text-xs text-slate-600">{[med.genericName, med.strength, med.dosageForm].filter(Boolean).join(" · ")}{med.requiresPrescription ? " · بوصفة" : ""}{med.isControlled ? " · خاضع للرقابة" : ""}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold text-[10px]">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold text-xs">
                           {med.category}
                         </span>
                       </td>
@@ -390,7 +528,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                             {med.stockQuantity} {med.unit}
                           </span>
                           {isLowStock && (
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-bold">
+                            <span className="text-xs px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-bold">
                               ناقص
                             </span>
                           )}
@@ -421,18 +559,34 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                           {med.expiryDate}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-mono text-slate-500 text-[11px]">
+                      <td className="py-3 px-4 font-mono text-slate-700 text-xs">
                         {med.batchNumber}
+                        {(med.batches?.filter(b => b.quantity > 0).length || 0) > 1 && (
+                          <div className="mt-0.5 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-900 font-sans font-black inline-block">
+                            {med.batches!.filter(b => b.quantity > 0).length} تشغيلات
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
-                            onClick={() => handleOpenEdit(med)}
-                            className="p-1.5 rounded-xl bg-sky-50 text-sky-800 hover:bg-sky-100 border border-sky-300 transition-colors shadow-2xs"
-                            title="تعديل بيانات الدواء"
+                            onClick={() => setMovementsFor(med)}
+                            className="p-1.5 rounded-xl bg-slate-50 text-slate-800 hover:bg-slate-100 border border-slate-300 transition-colors"
+                            title="سجل حركة الصنف"
+                            aria-label={`سجل حركة ${med.tradeName}`}
                           >
-                            <Edit className="w-4 h-4" />
+                            <History className="w-4 h-4" />
                           </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleOpenEdit(med)}
+                              className="p-1.5 rounded-xl bg-sky-50 text-sky-800 hover:bg-sky-100 border border-sky-300 transition-colors shadow-2xs"
+                              title="تعديل بيانات الدواء والتشغيلات"
+                              aria-label={`تعديل ${med.tradeName}`}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
                           {currentRole !== 'pharmacist' && (
                             <button
                               onClick={() => {
@@ -544,6 +698,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                {!editingMed && (
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">سعر الشراء</label>
                   <input
@@ -555,6 +710,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-slate-800"
                   />
                 </div>
+                )}
                 <div>
                   <label className="block text-emerald-800 font-bold mb-1">سعر البيع للجمهور</label>
                   <input
@@ -566,6 +722,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     className="w-full p-2.5 rounded-xl border border-emerald-300 font-mono font-black text-emerald-900 bg-emerald-50/50"
                   />
                 </div>
+                {!editingMed && (
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">الكمية المتوفرة</label>
                   <input
@@ -576,6 +733,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-slate-800"
                   />
                 </div>
+                )}
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">حد التنبيه الأدنى</label>
                   <input
@@ -588,35 +746,107 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 </div>
               </div>
 
+              {!editingMed && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">تاريخ انتهاء الصلاحية *</label>
+                    <input type="date" required value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-slate-800 font-bold" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">رقم التشغيلة / الدفعة (Batch)</label>
+                    <input type="text" value={batchNumber} onChange={e => setBatchNumber(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-slate-800" />
+                  </div>
+                </div>
+              )}
+
+              {editingMed && (
+                <div className="p-4 rounded-2xl border border-indigo-200 bg-indigo-50/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="font-black text-indigo-950">التشغيلات (كل دفعة بتاريخ انتهاء وتكلفة)</div>
+                    <button
+                      type="button"
+                      onClick={() => setEditBatches([...editBatches, { id: uid('bat'), batchNumber: '', expiryDate: '', quantity: '0', purchasePrice: purchasePrice || '0' }])}
+                      className="px-3 py-1 rounded-lg bg-indigo-700 text-white font-black"
+                    >
+                      + تشغيلة
+                    </button>
+                  </div>
+                  <p className="text-slate-700">يُباع الأقدم انتهاءً أولاً تلقائياً. تعديل الكمية هنا يُسجَّل في حركة المخزون.</p>
+                  <div className="space-y-2">
+                    {editBatches.map((b, i) => (
+                      <div key={b.id} className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-3">
+                          <label className="block text-slate-700 font-bold mb-0.5">رقم التشغيلة</label>
+                          <input value={b.batchNumber} onChange={e => setEditBatches(editBatches.map((x, j) => (j === i ? { ...x, batchNumber: e.target.value } : x)))} className="w-full p-2 rounded-lg border border-slate-300 font-mono" />
+                        </div>
+                        <div className="col-span-3">
+                          <label className="block text-slate-700 font-bold mb-0.5">الانتهاء</label>
+                          <input type="date" value={b.expiryDate} onChange={e => setEditBatches(editBatches.map((x, j) => (j === i ? { ...x, expiryDate: e.target.value } : x)))} className="w-full p-2 rounded-lg border border-slate-300 font-mono" />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-slate-700 font-bold mb-0.5">الكمية</label>
+                          <input type="number" min={0} value={b.quantity} onChange={e => setEditBatches(editBatches.map((x, j) => (j === i ? { ...x, quantity: e.target.value } : x)))} className="w-full p-2 rounded-lg border border-slate-300 font-mono font-bold" />
+                        </div>
+                        <div className="col-span-3">
+                          <label className="block text-slate-700 font-bold mb-0.5">تكلفة العبوة</label>
+                          <input type="number" min={0} step="0.01" value={b.purchasePrice} onChange={e => setEditBatches(editBatches.map((x, j) => (j === i ? { ...x, purchasePrice: e.target.value } : x)))} className="w-full p-2 rounded-lg border border-slate-300 font-mono" />
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="حذف التشغيلة"
+                          onClick={() => setEditBatches(editBatches.filter((_, j) => j !== i))}
+                          className="col-span-1 p-2 rounded-lg text-rose-800 hover:bg-rose-100 font-black"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">تاريخ انتهاء الصلاحية *</label>
-                  <input
-                    type="date"
-                    required
-                    value={expiryDate}
-                    onChange={e => setExpiryDate(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-slate-800 font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">رقم التشغيلة / الدفعة (Batch)</label>
-                  <input
-                    type="text"
-                    value={batchNumber}
-                    onChange={e => setBatchNumber(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-slate-800"
-                  />
-                </div>
-                <div>
+                <div className="sm:col-span-1">
                   <label className="block text-slate-700 font-bold mb-1">الشركة المصنعة / المورد</label>
-                  <input
-                    type="text"
-                    placeholder="بيرزيت، دار الشفاء، GSK..."
-                    value={manufacturer}
-                    onChange={e => setManufacturer(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800"
-                  />
+                  <input type="text" placeholder="بيرزيت، دار الشفاء، GSK..." value={manufacturer} onChange={e => setManufacturer(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800" />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">الشكل الصيدلاني</label>
+                  <input type="text" placeholder="أقراص، شراب، حقن..." value={dosageForm} onChange={e => setDosageForm(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800" />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">التركيز</label>
+                  <input type="text" placeholder="500mg" value={strength} onChange={e => setStrength(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono" dir="ltr" />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-4 p-3 rounded-2xl bg-violet-50/60 border border-violet-200">
+                <label className="flex items-center gap-2 font-black text-violet-950 cursor-pointer">
+                  <input type="checkbox" checked={requiresPrescription} onChange={e => setRequiresPrescription(e.target.checked)} className="w-4 h-4" />
+                  يُصرف بوصفة طبية
+                </label>
+                <label className="flex items-center gap-2 font-black text-rose-950 cursor-pointer">
+                  <input type="checkbox" checked={isControlled} onChange={e => setIsControlled(e.target.checked)} className="w-4 h-4" />
+                  دواء خاضع للرقابة (يتطلب رقم الوصفة)
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">وحدات في العبوة</label>
+                  <input type="number" min={1} value={unitsPerPack} onChange={e => setUnitsPerPack(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold" title="1 = لا يُباع بالتجزئة" />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">اسم الوحدة الصغرى</label>
+                  <input type="text" placeholder="شريط / حبة" disabled={(parseInt(unitsPerPack) || 1) <= 1} value={subUnitName} onChange={e => setSubUnitName(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 disabled:bg-slate-100" />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">سعر الوحدة الصغرى</label>
+                  <input type="number" step="0.01" min={0} placeholder="تلقائي" disabled={(parseInt(unitsPerPack) || 1) <= 1} value={subUnitPrice} onChange={e => setSubUnitPrice(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 font-mono disabled:bg-slate-100" />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">أدنى سعر بيع للعبوة</label>
+                  <input type="number" step="0.01" min={0} placeholder="اختياري" value={minSellPrice} onChange={e => setMinSellPrice(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 font-mono" />
                 </div>
               </div>
 
@@ -641,6 +871,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       )}
 
       {/* Excel Import Modal */}
+      {movementsFor && <MovementsModal medicine={movementsFor} movements={movements} onClose={() => setMovementsFor(null)} />}
+      {showStocktake && <StocktakeModal medicines={medicines} onApply={onStocktake} onClose={() => setShowStocktake(false)} />}
+      {showReturns && (
+        <SupplierReturnModal medicines={medicines} entities={entities} nearDays={nearDays} currency={settings.currency} onSubmit={onRemoveStock} onClose={() => setShowReturns(false)} />
+      )}
+      {showReorder && <ReorderModal medicines={medicines} sales={sales} currency={settings.currency} onClose={() => setShowReorder(false)} />}
+
+      {showExcelModal && (
+        <Suspense fallback={null}>
       <ExcelImportModal
         isOpen={showExcelModal}
         onClose={() => setShowExcelModal(false)}
@@ -648,6 +887,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         settings={settings}
         onImportSuccess={handleImportSuccess}
       />
+        </Suspense>
+      )}
     </div>
   );
 };

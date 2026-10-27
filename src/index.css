@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* أنماط dark: تتبع صنف .dark الذي يضبطه نظام الثيمات (وليس إعداد الجهاز) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light;
@@ -149,30 +152,12 @@ button.text-white:active svg {
   font-weight: 550;
 }
 
-/* Headings in high contrast mode */
-.contrast-boost h1,
-.contrast-boost h2,
-.contrast-boost h3,
-.contrast-boost h4,
-[data-theme="hyper_clarity"] h1,
-[data-theme="hyper_clarity"] h2,
-[data-theme="hyper_clarity"] h3,
-[data-theme="hyper_clarity"] h4,
-[data-theme="hyper_clarity"] h5,
-[data-theme="hyper_clarity"] h6,
-[data-theme="pure_clarity"] h1,
-[data-theme="pure_clarity"] h2,
-[data-theme="pure_clarity"] h3,
-[data-theme="pure_clarity"] h4,
-[data-theme="ultra_contrast"] h1,
-[data-theme="ultra_contrast"] h2,
-[data-theme="ultra_contrast"] h3,
-[data-theme="ultra_contrast"] h4,
-[data-theme="crisp_classic"] h1,
-[data-theme="crisp_classic"] h2,
-[data-theme="crisp_classic"] h3,
-[data-theme="crisp_classic"] h4 {
-  color: #000000 !important;
+/* Headings in high contrast mode
+   ملاحظة: كانت القاعدة تفرض الأسود بـ !important فتُخفي العناوين البيضاء داخل الترويسات الداكنة والملوّنة.
+   :where() يجعل الأولوية صفراً، فيتغلب أي لون صريح مثل text-white على هذا اللون الافتراضي. */
+:where(.contrast-boost, [data-theme="hyper_clarity"], [data-theme="pure_clarity"], [data-theme="ultra_contrast"], [data-theme="crisp_classic"])
+  :where(h1, h2, h3, h4, h5, h6) {
+  /* لا نحدد اللون هنا: يرثه العنوان من حاويته (أبيض داخل الترويسات الداكنة، وداكن في البطاقات الفاتحة) */
   font-weight: 850;
   letter-spacing: -0.01em;
 }
@@ -443,3 +428,251 @@ button.text-white:active svg {
   }
 }
 
+/* ========================================================
+   الثيم الداكن: تلوين منهجي (يُطبَّق فقط عند وجود الصنف .dark)
+   كانت بطاقات التطبيق بيضاء وعناوينه رمادية داكنة فتظهر غير مقروءة على الخلفية السوداء.
+   ======================================================== */
+.dark {
+  --dk-bg: #0b1220;
+  --dk-surface: #111a2e;
+  --dk-surface-2: #172036;
+  --dk-border: #2a3650;
+  --dk-text: #f1f5f9;
+  --dk-text-2: #cbd5e1;
+  --dk-text-3: #a3b2c8;
+}
+.dark .bg-white,
+.dark .bg-slate-50 { background-color: var(--dk-surface); }
+.dark .bg-slate-100,
+.dark .bg-gray-100 { background-color: var(--dk-surface-2); }
+.dark .bg-slate-50\/70, .dark .bg-slate-50\/50 { background-color: var(--dk-surface); }
+.dark .text-slate-950, .dark .text-slate-900, .dark .text-slate-800, .dark .text-black,
+.dark .text-gray-900, .dark .text-gray-800 { color: var(--dk-text); }
+.dark .text-slate-700, .dark .text-slate-600, .dark .text-gray-700, .dark .text-gray-600 { color: var(--dk-text-2); }
+.dark .text-slate-500, .dark .text-slate-400, .dark .text-gray-500 { color: var(--dk-text-3); }
+.dark .border-slate-100, .dark .border-slate-200, .dark .border-slate-300, .dark .border-gray-200,
+.dark .divide-slate-100 > :not(:last-child), .dark .divide-slate-200 > :not(:last-child) { border-color: var(--dk-border); }
+.dark input, .dark select, .dark textarea {
+  background-color: var(--dk-bg);
+  color: var(--dk-text);
+  border-color: var(--dk-border);
+}
+.dark input::placeholder, .dark textarea::placeholder { color: #7f8ea8; }
+.dark option { background: var(--dk-bg); color: var(--dk-text); }
+.dark table thead { background-color: var(--dk-surface-2); }
+.dark .shadow-sm, .dark .shadow-md { --tw-shadow-color: rgba(0,0,0,0.5); }
+
+.dark .bg-emerald-50, .dark .bg-emerald-100 { background-color: color-mix(in srgb, #10b981 20%, #0b1220); }
+.dark .bg-emerald-200 { background-color: color-mix(in srgb, #10b981 32%, #0b1220); }
+.dark .text-emerald-950, .dark .text-emerald-900, .dark .text-emerald-800, .dark .text-emerald-700 { color: color-mix(in srgb, #10b981 38%, #ffffff); }
+.dark .text-emerald-600, .dark .text-emerald-500 { color: color-mix(in srgb, #10b981 62%, #ffffff); }
+.dark .border-emerald-100, .dark .border-emerald-200, .dark .border-emerald-300 { border-color: color-mix(in srgb, #10b981 45%, #0b1220); }
+.dark .bg-amber-50, .dark .bg-amber-100 { background-color: color-mix(in srgb, #f59e0b 20%, #0b1220); }
+.dark .bg-amber-200 { background-color: color-mix(in srgb, #f59e0b 32%, #0b1220); }
+.dark .text-amber-950, .dark .text-amber-900, .dark .text-amber-800, .dark .text-amber-700 { color: color-mix(in srgb, #f59e0b 38%, #ffffff); }
+.dark .text-amber-600, .dark .text-amber-500 { color: color-mix(in srgb, #f59e0b 62%, #ffffff); }
+.dark .border-amber-100, .dark .border-amber-200, .dark .border-amber-300 { border-color: color-mix(in srgb, #f59e0b 45%, #0b1220); }
+.dark .bg-sky-50, .dark .bg-sky-100 { background-color: color-mix(in srgb, #0ea5e9 20%, #0b1220); }
+.dark .bg-sky-200 { background-color: color-mix(in srgb, #0ea5e9 32%, #0b1220); }
+.dark .text-sky-950, .dark .text-sky-900, .dark .text-sky-800, .dark .text-sky-700 { color: color-mix(in srgb, #0ea5e9 38%, #ffffff); }
+.dark .text-sky-600, .dark .text-sky-500 { color: color-mix(in srgb, #0ea5e9 62%, #ffffff); }
+.dark .border-sky-100, .dark .border-sky-200, .dark .border-sky-300 { border-color: color-mix(in srgb, #0ea5e9 45%, #0b1220); }
+.dark .bg-rose-50, .dark .bg-rose-100 { background-color: color-mix(in srgb, #f43f5e 20%, #0b1220); }
+.dark .bg-rose-200 { background-color: color-mix(in srgb, #f43f5e 32%, #0b1220); }
+.dark .text-rose-950, .dark .text-rose-900, .dark .text-rose-800, .dark .text-rose-700 { color: color-mix(in srgb, #f43f5e 38%, #ffffff); }
+.dark .text-rose-600, .dark .text-rose-500 { color: color-mix(in srgb, #f43f5e 62%, #ffffff); }
+.dark .border-rose-100, .dark .border-rose-200, .dark .border-rose-300 { border-color: color-mix(in srgb, #f43f5e 45%, #0b1220); }
+.dark .bg-red-50, .dark .bg-red-100 { background-color: color-mix(in srgb, #ef4444 20%, #0b1220); }
+.dark .bg-red-200 { background-color: color-mix(in srgb, #ef4444 32%, #0b1220); }
+.dark .text-red-950, .dark .text-red-900, .dark .text-red-800, .dark .text-red-700 { color: color-mix(in srgb, #ef4444 38%, #ffffff); }
+.dark .text-red-600, .dark .text-red-500 { color: color-mix(in srgb, #ef4444 62%, #ffffff); }
+.dark .border-red-100, .dark .border-red-200, .dark .border-red-300 { border-color: color-mix(in srgb, #ef4444 45%, #0b1220); }
+.dark .bg-indigo-50, .dark .bg-indigo-100 { background-color: color-mix(in srgb, #6366f1 20%, #0b1220); }
+.dark .bg-indigo-200 { background-color: color-mix(in srgb, #6366f1 32%, #0b1220); }
+.dark .text-indigo-950, .dark .text-indigo-900, .dark .text-indigo-800, .dark .text-indigo-700 { color: color-mix(in srgb, #6366f1 38%, #ffffff); }
+.dark .text-indigo-600, .dark .text-indigo-500 { color: color-mix(in srgb, #6366f1 62%, #ffffff); }
+.dark .border-indigo-100, .dark .border-indigo-200, .dark .border-indigo-300 { border-color: color-mix(in srgb, #6366f1 45%, #0b1220); }
+.dark .bg-violet-50, .dark .bg-violet-100 { background-color: color-mix(in srgb, #8b5cf6 20%, #0b1220); }
+.dark .bg-violet-200 { background-color: color-mix(in srgb, #8b5cf6 32%, #0b1220); }
+.dark .text-violet-950, .dark .text-violet-900, .dark .text-violet-800, .dark .text-violet-700 { color: color-mix(in srgb, #8b5cf6 38%, #ffffff); }
+.dark .text-violet-600, .dark .text-violet-500 { color: color-mix(in srgb, #8b5cf6 62%, #ffffff); }
+.dark .border-violet-100, .dark .border-violet-200, .dark .border-violet-300 { border-color: color-mix(in srgb, #8b5cf6 45%, #0b1220); }
+.dark .bg-cyan-50, .dark .bg-cyan-100 { background-color: color-mix(in srgb, #06b6d4 20%, #0b1220); }
+.dark .bg-cyan-200 { background-color: color-mix(in srgb, #06b6d4 32%, #0b1220); }
+.dark .text-cyan-950, .dark .text-cyan-900, .dark .text-cyan-800, .dark .text-cyan-700 { color: color-mix(in srgb, #06b6d4 38%, #ffffff); }
+.dark .text-cyan-600, .dark .text-cyan-500 { color: color-mix(in srgb, #06b6d4 62%, #ffffff); }
+.dark .border-cyan-100, .dark .border-cyan-200, .dark .border-cyan-300 { border-color: color-mix(in srgb, #06b6d4 45%, #0b1220); }
+.dark .bg-teal-50, .dark .bg-teal-100 { background-color: color-mix(in srgb, #14b8a6 20%, #0b1220); }
+.dark .bg-teal-200 { background-color: color-mix(in srgb, #14b8a6 32%, #0b1220); }
+.dark .text-teal-950, .dark .text-teal-900, .dark .text-teal-800, .dark .text-teal-700 { color: color-mix(in srgb, #14b8a6 38%, #ffffff); }
+.dark .text-teal-600, .dark .text-teal-500 { color: color-mix(in srgb, #14b8a6 62%, #ffffff); }
+.dark .border-teal-100, .dark .border-teal-200, .dark .border-teal-300 { border-color: color-mix(in srgb, #14b8a6 45%, #0b1220); }
+.dark .bg-blue-50, .dark .bg-blue-100 { background-color: color-mix(in srgb, #3b82f6 20%, #0b1220); }
+.dark .bg-blue-200 { background-color: color-mix(in srgb, #3b82f6 32%, #0b1220); }
+.dark .text-blue-950, .dark .text-blue-900, .dark .text-blue-800, .dark .text-blue-700 { color: color-mix(in srgb, #3b82f6 38%, #ffffff); }
+.dark .text-blue-600, .dark .text-blue-500 { color: color-mix(in srgb, #3b82f6 62%, #ffffff); }
+.dark .border-blue-100, .dark .border-blue-200, .dark .border-blue-300 { border-color: color-mix(in srgb, #3b82f6 45%, #0b1220); }
+.dark .bg-purple-50, .dark .bg-purple-100 { background-color: color-mix(in srgb, #a855f7 20%, #0b1220); }
+.dark .bg-purple-200 { background-color: color-mix(in srgb, #a855f7 32%, #0b1220); }
+.dark .text-purple-950, .dark .text-purple-900, .dark .text-purple-800, .dark .text-purple-700 { color: color-mix(in srgb, #a855f7 38%, #ffffff); }
+.dark .text-purple-600, .dark .text-purple-500 { color: color-mix(in srgb, #a855f7 62%, #ffffff); }
+.dark .border-purple-100, .dark .border-purple-200, .dark .border-purple-300 { border-color: color-mix(in srgb, #a855f7 45%, #0b1220); }
+.dark .bg-orange-50, .dark .bg-orange-100 { background-color: color-mix(in srgb, #f97316 20%, #0b1220); }
+.dark .bg-orange-200 { background-color: color-mix(in srgb, #f97316 32%, #0b1220); }
+.dark .text-orange-950, .dark .text-orange-900, .dark .text-orange-800, .dark .text-orange-700 { color: color-mix(in srgb, #f97316 38%, #ffffff); }
+.dark .text-orange-600, .dark .text-orange-500 { color: color-mix(in srgb, #f97316 62%, #ffffff); }
+.dark .border-orange-100, .dark .border-orange-200, .dark .border-orange-300 { border-color: color-mix(in srgb, #f97316 45%, #0b1220); }
+.dark .bg-green-50, .dark .bg-green-100 { background-color: color-mix(in srgb, #22c55e 20%, #0b1220); }
+.dark .bg-green-200 { background-color: color-mix(in srgb, #22c55e 32%, #0b1220); }
+.dark .text-green-950, .dark .text-green-900, .dark .text-green-800, .dark .text-green-700 { color: color-mix(in srgb, #22c55e 38%, #ffffff); }
+.dark .text-green-600, .dark .text-green-500 { color: color-mix(in srgb, #22c55e 62%, #ffffff); }
+.dark .border-green-100, .dark .border-green-200, .dark .border-green-300 { border-color: color-mix(in srgb, #22c55e 45%, #0b1220); }
+.dark .bg-yellow-50, .dark .bg-yellow-100 { background-color: color-mix(in srgb, #eab308 20%, #0b1220); }
+.dark .bg-yellow-200 { background-color: color-mix(in srgb, #eab308 32%, #0b1220); }
+.dark .text-yellow-950, .dark .text-yellow-900, .dark .text-yellow-800, .dark .text-yellow-700 { color: color-mix(in srgb, #eab308 38%, #ffffff); }
+.dark .text-yellow-600, .dark .text-yellow-500 { color: color-mix(in srgb, #eab308 62%, #ffffff); }
+.dark .border-yellow-100, .dark .border-yellow-200, .dark .border-yellow-300 { border-color: color-mix(in srgb, #eab308 45%, #0b1220); }
+.dark .bg-pink-50, .dark .bg-pink-100 { background-color: color-mix(in srgb, #ec4899 20%, #0b1220); }
+.dark .bg-pink-200 { background-color: color-mix(in srgb, #ec4899 32%, #0b1220); }
+.dark .text-pink-950, .dark .text-pink-900, .dark .text-pink-800, .dark .text-pink-700 { color: color-mix(in srgb, #ec4899 38%, #ffffff); }
+.dark .text-pink-600, .dark .text-pink-500 { color: color-mix(in srgb, #ec4899 62%, #ffffff); }
+.dark .border-pink-100, .dark .border-pink-200, .dark .border-pink-300 { border-color: color-mix(in srgb, #ec4899 45%, #0b1220); }
+.dark .bg-fuchsia-50, .dark .bg-fuchsia-100 { background-color: color-mix(in srgb, #d946ef 20%, #0b1220); }
+.dark .bg-fuchsia-200 { background-color: color-mix(in srgb, #d946ef 32%, #0b1220); }
+.dark .text-fuchsia-950, .dark .text-fuchsia-900, .dark .text-fuchsia-800, .dark .text-fuchsia-700 { color: color-mix(in srgb, #d946ef 38%, #ffffff); }
+.dark .text-fuchsia-600, .dark .text-fuchsia-500 { color: color-mix(in srgb, #d946ef 62%, #ffffff); }
+.dark .border-fuchsia-100, .dark .border-fuchsia-200, .dark .border-fuchsia-300 { border-color: color-mix(in srgb, #d946ef 45%, #0b1220); }
+.dark .bg-lime-50, .dark .bg-lime-100 { background-color: color-mix(in srgb, #84cc16 20%, #0b1220); }
+.dark .bg-lime-200 { background-color: color-mix(in srgb, #84cc16 32%, #0b1220); }
+.dark .text-lime-950, .dark .text-lime-900, .dark .text-lime-800, .dark .text-lime-700 { color: color-mix(in srgb, #84cc16 38%, #ffffff); }
+.dark .text-lime-600, .dark .text-lime-500 { color: color-mix(in srgb, #84cc16 62%, #ffffff); }
+.dark .border-lime-100, .dark .border-lime-200, .dark .border-lime-300 { border-color: color-mix(in srgb, #84cc16 45%, #0b1220); }
+
+/* تغطية الأصناف ذات الشفافية والتدرجات في الثيم الداكن */
+.dark [class*="bg-emerald-50"],.dark [class*="from-emerald-50"],.dark [class*="to-emerald-50"],.dark [class*="via-emerald-50"],.dark [class*="bg-emerald-100"],.dark [class*="from-emerald-100"],.dark [class*="to-emerald-100"],.dark [class*="via-emerald-100"] { background-image: none; background-color: color-mix(in srgb, #10b981 20%, #0b1220); }
+.dark [class*="bg-amber-50"],.dark [class*="from-amber-50"],.dark [class*="to-amber-50"],.dark [class*="via-amber-50"],.dark [class*="bg-amber-100"],.dark [class*="from-amber-100"],.dark [class*="to-amber-100"],.dark [class*="via-amber-100"] { background-image: none; background-color: color-mix(in srgb, #f59e0b 20%, #0b1220); }
+.dark [class*="bg-sky-50"],.dark [class*="from-sky-50"],.dark [class*="to-sky-50"],.dark [class*="via-sky-50"],.dark [class*="bg-sky-100"],.dark [class*="from-sky-100"],.dark [class*="to-sky-100"],.dark [class*="via-sky-100"] { background-image: none; background-color: color-mix(in srgb, #0ea5e9 20%, #0b1220); }
+.dark [class*="bg-rose-50"],.dark [class*="from-rose-50"],.dark [class*="to-rose-50"],.dark [class*="via-rose-50"],.dark [class*="bg-rose-100"],.dark [class*="from-rose-100"],.dark [class*="to-rose-100"],.dark [class*="via-rose-100"] { background-image: none; background-color: color-mix(in srgb, #f43f5e 20%, #0b1220); }
+.dark [class*="bg-red-50"],.dark [class*="from-red-50"],.dark [class*="to-red-50"],.dark [class*="via-red-50"],.dark [class*="bg-red-100"],.dark [class*="from-red-100"],.dark [class*="to-red-100"],.dark [class*="via-red-100"] { background-image: none; background-color: color-mix(in srgb, #ef4444 20%, #0b1220); }
+.dark [class*="bg-indigo-50"],.dark [class*="from-indigo-50"],.dark [class*="to-indigo-50"],.dark [class*="via-indigo-50"],.dark [class*="bg-indigo-100"],.dark [class*="from-indigo-100"],.dark [class*="to-indigo-100"],.dark [class*="via-indigo-100"] { background-image: none; background-color: color-mix(in srgb, #6366f1 20%, #0b1220); }
+.dark [class*="bg-violet-50"],.dark [class*="from-violet-50"],.dark [class*="to-violet-50"],.dark [class*="via-violet-50"],.dark [class*="bg-violet-100"],.dark [class*="from-violet-100"],.dark [class*="to-violet-100"],.dark [class*="via-violet-100"] { background-image: none; background-color: color-mix(in srgb, #8b5cf6 20%, #0b1220); }
+.dark [class*="bg-cyan-50"],.dark [class*="from-cyan-50"],.dark [class*="to-cyan-50"],.dark [class*="via-cyan-50"],.dark [class*="bg-cyan-100"],.dark [class*="from-cyan-100"],.dark [class*="to-cyan-100"],.dark [class*="via-cyan-100"] { background-image: none; background-color: color-mix(in srgb, #06b6d4 20%, #0b1220); }
+.dark [class*="bg-teal-50"],.dark [class*="from-teal-50"],.dark [class*="to-teal-50"],.dark [class*="via-teal-50"],.dark [class*="bg-teal-100"],.dark [class*="from-teal-100"],.dark [class*="to-teal-100"],.dark [class*="via-teal-100"] { background-image: none; background-color: color-mix(in srgb, #14b8a6 20%, #0b1220); }
+.dark [class*="bg-blue-50"],.dark [class*="from-blue-50"],.dark [class*="to-blue-50"],.dark [class*="via-blue-50"],.dark [class*="bg-blue-100"],.dark [class*="from-blue-100"],.dark [class*="to-blue-100"],.dark [class*="via-blue-100"] { background-image: none; background-color: color-mix(in srgb, #3b82f6 20%, #0b1220); }
+.dark [class*="bg-purple-50"],.dark [class*="from-purple-50"],.dark [class*="to-purple-50"],.dark [class*="via-purple-50"],.dark [class*="bg-purple-100"],.dark [class*="from-purple-100"],.dark [class*="to-purple-100"],.dark [class*="via-purple-100"] { background-image: none; background-color: color-mix(in srgb, #a855f7 20%, #0b1220); }
+.dark [class*="bg-orange-50"],.dark [class*="from-orange-50"],.dark [class*="to-orange-50"],.dark [class*="via-orange-50"],.dark [class*="bg-orange-100"],.dark [class*="from-orange-100"],.dark [class*="to-orange-100"],.dark [class*="via-orange-100"] { background-image: none; background-color: color-mix(in srgb, #f97316 20%, #0b1220); }
+.dark [class*="bg-green-50"],.dark [class*="from-green-50"],.dark [class*="to-green-50"],.dark [class*="via-green-50"],.dark [class*="bg-green-100"],.dark [class*="from-green-100"],.dark [class*="to-green-100"],.dark [class*="via-green-100"] { background-image: none; background-color: color-mix(in srgb, #22c55e 20%, #0b1220); }
+.dark [class*="bg-yellow-50"],.dark [class*="from-yellow-50"],.dark [class*="to-yellow-50"],.dark [class*="via-yellow-50"],.dark [class*="bg-yellow-100"],.dark [class*="from-yellow-100"],.dark [class*="to-yellow-100"],.dark [class*="via-yellow-100"] { background-image: none; background-color: color-mix(in srgb, #eab308 20%, #0b1220); }
+.dark [class*="bg-pink-50"],.dark [class*="from-pink-50"],.dark [class*="to-pink-50"],.dark [class*="via-pink-50"],.dark [class*="bg-pink-100"],.dark [class*="from-pink-100"],.dark [class*="to-pink-100"],.dark [class*="via-pink-100"] { background-image: none; background-color: color-mix(in srgb, #ec4899 20%, #0b1220); }
+.dark [class*="bg-fuchsia-50"],.dark [class*="from-fuchsia-50"],.dark [class*="to-fuchsia-50"],.dark [class*="via-fuchsia-50"],.dark [class*="bg-fuchsia-100"],.dark [class*="from-fuchsia-100"],.dark [class*="to-fuchsia-100"],.dark [class*="via-fuchsia-100"] { background-image: none; background-color: color-mix(in srgb, #d946ef 20%, #0b1220); }
+.dark [class*="bg-lime-50"],.dark [class*="from-lime-50"],.dark [class*="to-lime-50"],.dark [class*="via-lime-50"],.dark [class*="bg-lime-100"],.dark [class*="from-lime-100"],.dark [class*="to-lime-100"],.dark [class*="via-lime-100"] { background-image: none; background-color: color-mix(in srgb, #84cc16 20%, #0b1220); }
+.dark [class*="bg-white/"], .dark [class*="bg-slate-50/"] { background-color: color-mix(in srgb, #111a2e 85%, transparent); }
+.dark [class*="from-slate-50"], .dark [class*="to-slate-50"], .dark [class*="from-white"], .dark [class*="to-white"] { background-image: none; background-color: var(--dk-surface); }
+
+/* الثيم الداكن: تجاوز قواعد "الأزرار الفاتحة نصها داكن دائماً" (!important) التي كانت تُخفي النص على الخلفيات الداكنة */
+.dark button.bg-white, .dark button.bg-white > span, .dark button.bg-white > div, .dark button.bg-white p,
+.dark button.bg-slate-50, .dark button.bg-slate-50 > span, .dark button.bg-slate-100, .dark button.bg-slate-100 > span,
+.dark button.bg-slate-200, .dark button.bg-slate-200 > span, .dark button.bg-gray-50, .dark button.bg-gray-100 { color: var(--dk-text) !important; }
+.dark button.bg-white:active, .dark button.bg-white:active > span { color: var(--dk-text) !important; }
+.dark button.bg-emerald-50,.dark button.bg-emerald-100,.dark button.bg-emerald-50 > span,.dark button.bg-emerald-100 > span { color: color-mix(in srgb, #10b981 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-emerald-500, .dark button.bg-slate-50 > span.text-emerald-500, .dark button.bg-slate-100 > span.text-emerald-500 { color: color-mix(in srgb, #10b981 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-emerald-600, .dark button.bg-slate-50 > span.text-emerald-600, .dark button.bg-slate-100 > span.text-emerald-600 { color: color-mix(in srgb, #10b981 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-emerald-700, .dark button.bg-slate-50 > span.text-emerald-700, .dark button.bg-slate-100 > span.text-emerald-700 { color: color-mix(in srgb, #10b981 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-emerald-800, .dark button.bg-slate-50 > span.text-emerald-800, .dark button.bg-slate-100 > span.text-emerald-800 { color: color-mix(in srgb, #10b981 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-emerald-900, .dark button.bg-slate-50 > span.text-emerald-900, .dark button.bg-slate-100 > span.text-emerald-900 { color: color-mix(in srgb, #10b981 38%, #ffffff) !important; }
+.dark button.bg-amber-50,.dark button.bg-amber-100,.dark button.bg-amber-50 > span,.dark button.bg-amber-100 > span { color: color-mix(in srgb, #f59e0b 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-amber-500, .dark button.bg-slate-50 > span.text-amber-500, .dark button.bg-slate-100 > span.text-amber-500 { color: color-mix(in srgb, #f59e0b 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-amber-600, .dark button.bg-slate-50 > span.text-amber-600, .dark button.bg-slate-100 > span.text-amber-600 { color: color-mix(in srgb, #f59e0b 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-amber-700, .dark button.bg-slate-50 > span.text-amber-700, .dark button.bg-slate-100 > span.text-amber-700 { color: color-mix(in srgb, #f59e0b 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-amber-800, .dark button.bg-slate-50 > span.text-amber-800, .dark button.bg-slate-100 > span.text-amber-800 { color: color-mix(in srgb, #f59e0b 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-amber-900, .dark button.bg-slate-50 > span.text-amber-900, .dark button.bg-slate-100 > span.text-amber-900 { color: color-mix(in srgb, #f59e0b 38%, #ffffff) !important; }
+.dark button.bg-sky-50,.dark button.bg-sky-100,.dark button.bg-sky-50 > span,.dark button.bg-sky-100 > span { color: color-mix(in srgb, #0ea5e9 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-sky-500, .dark button.bg-slate-50 > span.text-sky-500, .dark button.bg-slate-100 > span.text-sky-500 { color: color-mix(in srgb, #0ea5e9 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-sky-600, .dark button.bg-slate-50 > span.text-sky-600, .dark button.bg-slate-100 > span.text-sky-600 { color: color-mix(in srgb, #0ea5e9 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-sky-700, .dark button.bg-slate-50 > span.text-sky-700, .dark button.bg-slate-100 > span.text-sky-700 { color: color-mix(in srgb, #0ea5e9 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-sky-800, .dark button.bg-slate-50 > span.text-sky-800, .dark button.bg-slate-100 > span.text-sky-800 { color: color-mix(in srgb, #0ea5e9 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-sky-900, .dark button.bg-slate-50 > span.text-sky-900, .dark button.bg-slate-100 > span.text-sky-900 { color: color-mix(in srgb, #0ea5e9 38%, #ffffff) !important; }
+.dark button.bg-rose-50,.dark button.bg-rose-100,.dark button.bg-rose-50 > span,.dark button.bg-rose-100 > span { color: color-mix(in srgb, #f43f5e 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-rose-500, .dark button.bg-slate-50 > span.text-rose-500, .dark button.bg-slate-100 > span.text-rose-500 { color: color-mix(in srgb, #f43f5e 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-rose-600, .dark button.bg-slate-50 > span.text-rose-600, .dark button.bg-slate-100 > span.text-rose-600 { color: color-mix(in srgb, #f43f5e 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-rose-700, .dark button.bg-slate-50 > span.text-rose-700, .dark button.bg-slate-100 > span.text-rose-700 { color: color-mix(in srgb, #f43f5e 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-rose-800, .dark button.bg-slate-50 > span.text-rose-800, .dark button.bg-slate-100 > span.text-rose-800 { color: color-mix(in srgb, #f43f5e 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-rose-900, .dark button.bg-slate-50 > span.text-rose-900, .dark button.bg-slate-100 > span.text-rose-900 { color: color-mix(in srgb, #f43f5e 38%, #ffffff) !important; }
+.dark button.bg-red-50,.dark button.bg-red-100,.dark button.bg-red-50 > span,.dark button.bg-red-100 > span { color: color-mix(in srgb, #ef4444 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-red-500, .dark button.bg-slate-50 > span.text-red-500, .dark button.bg-slate-100 > span.text-red-500 { color: color-mix(in srgb, #ef4444 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-red-600, .dark button.bg-slate-50 > span.text-red-600, .dark button.bg-slate-100 > span.text-red-600 { color: color-mix(in srgb, #ef4444 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-red-700, .dark button.bg-slate-50 > span.text-red-700, .dark button.bg-slate-100 > span.text-red-700 { color: color-mix(in srgb, #ef4444 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-red-800, .dark button.bg-slate-50 > span.text-red-800, .dark button.bg-slate-100 > span.text-red-800 { color: color-mix(in srgb, #ef4444 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-red-900, .dark button.bg-slate-50 > span.text-red-900, .dark button.bg-slate-100 > span.text-red-900 { color: color-mix(in srgb, #ef4444 38%, #ffffff) !important; }
+.dark button.bg-indigo-50,.dark button.bg-indigo-100,.dark button.bg-indigo-50 > span,.dark button.bg-indigo-100 > span { color: color-mix(in srgb, #6366f1 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-indigo-500, .dark button.bg-slate-50 > span.text-indigo-500, .dark button.bg-slate-100 > span.text-indigo-500 { color: color-mix(in srgb, #6366f1 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-indigo-600, .dark button.bg-slate-50 > span.text-indigo-600, .dark button.bg-slate-100 > span.text-indigo-600 { color: color-mix(in srgb, #6366f1 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-indigo-700, .dark button.bg-slate-50 > span.text-indigo-700, .dark button.bg-slate-100 > span.text-indigo-700 { color: color-mix(in srgb, #6366f1 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-indigo-800, .dark button.bg-slate-50 > span.text-indigo-800, .dark button.bg-slate-100 > span.text-indigo-800 { color: color-mix(in srgb, #6366f1 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-indigo-900, .dark button.bg-slate-50 > span.text-indigo-900, .dark button.bg-slate-100 > span.text-indigo-900 { color: color-mix(in srgb, #6366f1 38%, #ffffff) !important; }
+.dark button.bg-violet-50,.dark button.bg-violet-100,.dark button.bg-violet-50 > span,.dark button.bg-violet-100 > span { color: color-mix(in srgb, #8b5cf6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-violet-500, .dark button.bg-slate-50 > span.text-violet-500, .dark button.bg-slate-100 > span.text-violet-500 { color: color-mix(in srgb, #8b5cf6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-violet-600, .dark button.bg-slate-50 > span.text-violet-600, .dark button.bg-slate-100 > span.text-violet-600 { color: color-mix(in srgb, #8b5cf6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-violet-700, .dark button.bg-slate-50 > span.text-violet-700, .dark button.bg-slate-100 > span.text-violet-700 { color: color-mix(in srgb, #8b5cf6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-violet-800, .dark button.bg-slate-50 > span.text-violet-800, .dark button.bg-slate-100 > span.text-violet-800 { color: color-mix(in srgb, #8b5cf6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-violet-900, .dark button.bg-slate-50 > span.text-violet-900, .dark button.bg-slate-100 > span.text-violet-900 { color: color-mix(in srgb, #8b5cf6 38%, #ffffff) !important; }
+.dark button.bg-cyan-50,.dark button.bg-cyan-100,.dark button.bg-cyan-50 > span,.dark button.bg-cyan-100 > span { color: color-mix(in srgb, #06b6d4 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-cyan-500, .dark button.bg-slate-50 > span.text-cyan-500, .dark button.bg-slate-100 > span.text-cyan-500 { color: color-mix(in srgb, #06b6d4 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-cyan-600, .dark button.bg-slate-50 > span.text-cyan-600, .dark button.bg-slate-100 > span.text-cyan-600 { color: color-mix(in srgb, #06b6d4 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-cyan-700, .dark button.bg-slate-50 > span.text-cyan-700, .dark button.bg-slate-100 > span.text-cyan-700 { color: color-mix(in srgb, #06b6d4 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-cyan-800, .dark button.bg-slate-50 > span.text-cyan-800, .dark button.bg-slate-100 > span.text-cyan-800 { color: color-mix(in srgb, #06b6d4 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-cyan-900, .dark button.bg-slate-50 > span.text-cyan-900, .dark button.bg-slate-100 > span.text-cyan-900 { color: color-mix(in srgb, #06b6d4 38%, #ffffff) !important; }
+.dark button.bg-teal-50,.dark button.bg-teal-100,.dark button.bg-teal-50 > span,.dark button.bg-teal-100 > span { color: color-mix(in srgb, #14b8a6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-teal-500, .dark button.bg-slate-50 > span.text-teal-500, .dark button.bg-slate-100 > span.text-teal-500 { color: color-mix(in srgb, #14b8a6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-teal-600, .dark button.bg-slate-50 > span.text-teal-600, .dark button.bg-slate-100 > span.text-teal-600 { color: color-mix(in srgb, #14b8a6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-teal-700, .dark button.bg-slate-50 > span.text-teal-700, .dark button.bg-slate-100 > span.text-teal-700 { color: color-mix(in srgb, #14b8a6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-teal-800, .dark button.bg-slate-50 > span.text-teal-800, .dark button.bg-slate-100 > span.text-teal-800 { color: color-mix(in srgb, #14b8a6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-teal-900, .dark button.bg-slate-50 > span.text-teal-900, .dark button.bg-slate-100 > span.text-teal-900 { color: color-mix(in srgb, #14b8a6 38%, #ffffff) !important; }
+.dark button.bg-blue-50,.dark button.bg-blue-100,.dark button.bg-blue-50 > span,.dark button.bg-blue-100 > span { color: color-mix(in srgb, #3b82f6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-blue-500, .dark button.bg-slate-50 > span.text-blue-500, .dark button.bg-slate-100 > span.text-blue-500 { color: color-mix(in srgb, #3b82f6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-blue-600, .dark button.bg-slate-50 > span.text-blue-600, .dark button.bg-slate-100 > span.text-blue-600 { color: color-mix(in srgb, #3b82f6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-blue-700, .dark button.bg-slate-50 > span.text-blue-700, .dark button.bg-slate-100 > span.text-blue-700 { color: color-mix(in srgb, #3b82f6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-blue-800, .dark button.bg-slate-50 > span.text-blue-800, .dark button.bg-slate-100 > span.text-blue-800 { color: color-mix(in srgb, #3b82f6 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-blue-900, .dark button.bg-slate-50 > span.text-blue-900, .dark button.bg-slate-100 > span.text-blue-900 { color: color-mix(in srgb, #3b82f6 38%, #ffffff) !important; }
+.dark button.bg-purple-50,.dark button.bg-purple-100,.dark button.bg-purple-50 > span,.dark button.bg-purple-100 > span { color: color-mix(in srgb, #a855f7 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-purple-500, .dark button.bg-slate-50 > span.text-purple-500, .dark button.bg-slate-100 > span.text-purple-500 { color: color-mix(in srgb, #a855f7 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-purple-600, .dark button.bg-slate-50 > span.text-purple-600, .dark button.bg-slate-100 > span.text-purple-600 { color: color-mix(in srgb, #a855f7 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-purple-700, .dark button.bg-slate-50 > span.text-purple-700, .dark button.bg-slate-100 > span.text-purple-700 { color: color-mix(in srgb, #a855f7 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-purple-800, .dark button.bg-slate-50 > span.text-purple-800, .dark button.bg-slate-100 > span.text-purple-800 { color: color-mix(in srgb, #a855f7 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-purple-900, .dark button.bg-slate-50 > span.text-purple-900, .dark button.bg-slate-100 > span.text-purple-900 { color: color-mix(in srgb, #a855f7 38%, #ffffff) !important; }
+.dark button.bg-orange-50,.dark button.bg-orange-100,.dark button.bg-orange-50 > span,.dark button.bg-orange-100 > span { color: color-mix(in srgb, #f97316 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-orange-500, .dark button.bg-slate-50 > span.text-orange-500, .dark button.bg-slate-100 > span.text-orange-500 { color: color-mix(in srgb, #f97316 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-orange-600, .dark button.bg-slate-50 > span.text-orange-600, .dark button.bg-slate-100 > span.text-orange-600 { color: color-mix(in srgb, #f97316 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-orange-700, .dark button.bg-slate-50 > span.text-orange-700, .dark button.bg-slate-100 > span.text-orange-700 { color: color-mix(in srgb, #f97316 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-orange-800, .dark button.bg-slate-50 > span.text-orange-800, .dark button.bg-slate-100 > span.text-orange-800 { color: color-mix(in srgb, #f97316 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-orange-900, .dark button.bg-slate-50 > span.text-orange-900, .dark button.bg-slate-100 > span.text-orange-900 { color: color-mix(in srgb, #f97316 38%, #ffffff) !important; }
+.dark button.bg-green-50,.dark button.bg-green-100,.dark button.bg-green-50 > span,.dark button.bg-green-100 > span { color: color-mix(in srgb, #22c55e 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-green-500, .dark button.bg-slate-50 > span.text-green-500, .dark button.bg-slate-100 > span.text-green-500 { color: color-mix(in srgb, #22c55e 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-green-600, .dark button.bg-slate-50 > span.text-green-600, .dark button.bg-slate-100 > span.text-green-600 { color: color-mix(in srgb, #22c55e 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-green-700, .dark button.bg-slate-50 > span.text-green-700, .dark button.bg-slate-100 > span.text-green-700 { color: color-mix(in srgb, #22c55e 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-green-800, .dark button.bg-slate-50 > span.text-green-800, .dark button.bg-slate-100 > span.text-green-800 { color: color-mix(in srgb, #22c55e 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-green-900, .dark button.bg-slate-50 > span.text-green-900, .dark button.bg-slate-100 > span.text-green-900 { color: color-mix(in srgb, #22c55e 38%, #ffffff) !important; }
+.dark button.bg-yellow-50,.dark button.bg-yellow-100,.dark button.bg-yellow-50 > span,.dark button.bg-yellow-100 > span { color: color-mix(in srgb, #eab308 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-yellow-500, .dark button.bg-slate-50 > span.text-yellow-500, .dark button.bg-slate-100 > span.text-yellow-500 { color: color-mix(in srgb, #eab308 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-yellow-600, .dark button.bg-slate-50 > span.text-yellow-600, .dark button.bg-slate-100 > span.text-yellow-600 { color: color-mix(in srgb, #eab308 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-yellow-700, .dark button.bg-slate-50 > span.text-yellow-700, .dark button.bg-slate-100 > span.text-yellow-700 { color: color-mix(in srgb, #eab308 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-yellow-800, .dark button.bg-slate-50 > span.text-yellow-800, .dark button.bg-slate-100 > span.text-yellow-800 { color: color-mix(in srgb, #eab308 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-yellow-900, .dark button.bg-slate-50 > span.text-yellow-900, .dark button.bg-slate-100 > span.text-yellow-900 { color: color-mix(in srgb, #eab308 38%, #ffffff) !important; }
+.dark button.bg-pink-50,.dark button.bg-pink-100,.dark button.bg-pink-50 > span,.dark button.bg-pink-100 > span { color: color-mix(in srgb, #ec4899 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-pink-500, .dark button.bg-slate-50 > span.text-pink-500, .dark button.bg-slate-100 > span.text-pink-500 { color: color-mix(in srgb, #ec4899 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-pink-600, .dark button.bg-slate-50 > span.text-pink-600, .dark button.bg-slate-100 > span.text-pink-600 { color: color-mix(in srgb, #ec4899 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-pink-700, .dark button.bg-slate-50 > span.text-pink-700, .dark button.bg-slate-100 > span.text-pink-700 { color: color-mix(in srgb, #ec4899 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-pink-800, .dark button.bg-slate-50 > span.text-pink-800, .dark button.bg-slate-100 > span.text-pink-800 { color: color-mix(in srgb, #ec4899 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-pink-900, .dark button.bg-slate-50 > span.text-pink-900, .dark button.bg-slate-100 > span.text-pink-900 { color: color-mix(in srgb, #ec4899 38%, #ffffff) !important; }
+.dark button.bg-fuchsia-50,.dark button.bg-fuchsia-100,.dark button.bg-fuchsia-50 > span,.dark button.bg-fuchsia-100 > span { color: color-mix(in srgb, #d946ef 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-fuchsia-500, .dark button.bg-slate-50 > span.text-fuchsia-500, .dark button.bg-slate-100 > span.text-fuchsia-500 { color: color-mix(in srgb, #d946ef 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-fuchsia-600, .dark button.bg-slate-50 > span.text-fuchsia-600, .dark button.bg-slate-100 > span.text-fuchsia-600 { color: color-mix(in srgb, #d946ef 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-fuchsia-700, .dark button.bg-slate-50 > span.text-fuchsia-700, .dark button.bg-slate-100 > span.text-fuchsia-700 { color: color-mix(in srgb, #d946ef 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-fuchsia-800, .dark button.bg-slate-50 > span.text-fuchsia-800, .dark button.bg-slate-100 > span.text-fuchsia-800 { color: color-mix(in srgb, #d946ef 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-fuchsia-900, .dark button.bg-slate-50 > span.text-fuchsia-900, .dark button.bg-slate-100 > span.text-fuchsia-900 { color: color-mix(in srgb, #d946ef 38%, #ffffff) !important; }
+.dark button.bg-lime-50,.dark button.bg-lime-100,.dark button.bg-lime-50 > span,.dark button.bg-lime-100 > span { color: color-mix(in srgb, #84cc16 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-lime-500, .dark button.bg-slate-50 > span.text-lime-500, .dark button.bg-slate-100 > span.text-lime-500 { color: color-mix(in srgb, #84cc16 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-lime-600, .dark button.bg-slate-50 > span.text-lime-600, .dark button.bg-slate-100 > span.text-lime-600 { color: color-mix(in srgb, #84cc16 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-lime-700, .dark button.bg-slate-50 > span.text-lime-700, .dark button.bg-slate-100 > span.text-lime-700 { color: color-mix(in srgb, #84cc16 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-lime-800, .dark button.bg-slate-50 > span.text-lime-800, .dark button.bg-slate-100 > span.text-lime-800 { color: color-mix(in srgb, #84cc16 38%, #ffffff) !important; }
+.dark button.bg-white > span.text-lime-900, .dark button.bg-slate-50 > span.text-lime-900, .dark button.bg-slate-100 > span.text-lime-900 { color: color-mix(in srgb, #84cc16 38%, #ffffff) !important; }

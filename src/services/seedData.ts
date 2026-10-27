@@ -11,28 +11,33 @@ import {
 /**
  * بيانات الترخيص الافتراضية
  */
-export const defaultLicense: LicenseInfo = {
-  isActivated: true,
-  licenseKey: 'PHARMA-PRO-MALIK-2026-9981',
-  planType: 'annual',
-  startDate: '2026-10-01',
-  expiryDate: '2027-10-01',
-  pharmacyName: 'صيدلية النور النموذجية',
-  clientName: 'د. مالك حريبات',
-  clientPhone: '0594345464',
-  notes: 'نسخة مرخصة ومعتمدة للصيدلية بواسطة المهندس مالك حريبات',
-  activatedBy: 'المهندس مالك حريبات',
-};
+export const defaultLicense: LicenseInfo = (() => {
+  const start = new Date();
+  const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const fmt = (d: Date) => d.toISOString().split('T')[0];
+  return {
+    isActivated: true,
+    licenseKey: '',
+    planType: 'trial',
+    startDate: fmt(start),
+    expiryDate: fmt(end),
+    pharmacyName: '',
+    clientName: '',
+    clientPhone: '',
+    notes: 'نسخة تجريبية لمدة 30 يوماً',
+    activatedBy: '',
+  } as LicenseInfo;
+})();
 
 /**
  * الإعدادات الأولية للنظام - خالية من أي كلمات مرور أو رموز PIN افتراضية صريحة
  * سيتم تعيينها بشكل آمن ومشفر من قبل المدير في شاشة الإعداد الأولى
  */
 export const defaultSettings: AppSettings = {
-  pharmacyName: 'صيدلية النور النموذجية',
-  ownerName: 'د. مالك حريبات',
-  phone: '0594345464',
-  address: 'الشارع الرئيسي - وسط المدينة',
+  pharmacyName: '',
+  ownerName: '',
+  phone: '',
+  address: '',
   currency: '₪',
   taxRate: 0,
   pincode: '', // تم حذف 1234

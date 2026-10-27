@@ -5,7 +5,7 @@
  *
  * يوفر هذا الملف:
  * 1. تشفير وتجزئة كلمات المرور ورموز الـ PIN باستخدام Web Crypto API (PBKDF2-HMAC-SHA256) مع Salt.
- * 2. تشفير وفك تشفير بيانات التخزين الحساسة في localStorage (AES-GCM).
+ * 2. قراءة/ترحيل البيانات القديمة المشفّرة بصيغة AES القديمة فقط.
  * 3. حماية وتشفير ملفات النسخ الاحتياطي (JSON Backup) بكلمة مرور.
  * ========================================================
  */
@@ -13,8 +13,9 @@
 // Prefix to distinguish encrypted entries in storage
 const ENCRYPTED_PREFIX = 'ENC_v1:';
 
-// Default master derivation phrase for local storage key
-const STORAGE_APP_KEY_MATERIAL = 'FarmPro_SecureStorage_MalikHraibat_2026';
+// مفتاح قديم: يُستخدم فقط لقراءة بيانات مخزّنة بالصيغة القديمة وترحيلها (انظر migrateLegacyStorage).
+// لا يُستخدم لتشفير أي بيانات جديدة لأنه مكشوف في الكود ولا يوفّر حماية.
+const LEGACY_STORAGE_KEY_MATERIAL = 'FarmPro_SecureStorage_MalikHraibat_2026';
 
 /**
  * تحويل مصفوفة بايت إلى تمثيل Hex
@@ -44,12 +45,12 @@ export class CryptoService {
    */
   static generateSalt(byteLength: number = 16): string {
     const array = new Uint8Array(byteLength);
-    if (typeof window !== 'undefined' && window.crypto) {
-      window.crypto.getRandomValues(array);
+    if ((globalThis as any).crypto?.getRandomValues) {
+      (globalThis as any).crypto.getRandomValues(array);
     } else {
       // Fallback for non-browser environment
       for (let i = 0; i < byteLength; i++) {
-        array[i] = Math.floor(Math.random() * 256);
+        array[i] = Math.floor(Math.random() * 256); // احتياطي فقط عند غياب crypto
       }
     }
     return bufferToHex(array.buffer);
@@ -59,57 +60,34 @@ export class CryptoService {
    * تجزئة كلمة المرور أو رمز الـ PIN باستخدام PBKDF2-HMAC-SHA256 مع Salt
    * لا يتم تخزين أي كلمة مرور أو PIN كنص صريح
    */
-  static async hashSecret(secret: string, customSalt?: string): Promise<{ hash: string; salt: string }> {
+  static async hashSecret(
+    secret: string,
+    customSalt?: string,
+    iterations: number = 100000
+  ): Promise<{ hash: string; salt: string }> {
+    const webCrypto: Crypto | undefined = (globalThis as any).crypto;
+    if (!webCrypto || !webCrypto.subtle) {
+      throw new Error('المتصفح لا يدعم التشفير الآمن. افتح البرنامج عبر رابط https.');
+    }
     const saltHex = customSalt || this.generateSalt(16);
     const saltBytes = hexToBytes(saltHex);
-    const enc = new TextEncoder();
-    const secretBytes = enc.encode(secret);
+    const secretBytes = new TextEncoder().encode(secret);
 
-    if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
-      try {
-        const keyMaterial = await window.crypto.subtle.importKey(
-          'raw',
-          secretBytes,
-          { name: 'PBKDF2' },
-          false,
-          ['deriveBits']
-        );
+    const keyMaterial = await webCrypto.subtle.importKey('raw', secretBytes, { name: 'PBKDF2' }, false, [
+      'deriveBits',
+    ]);
+    const derivedBits = await webCrypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: saltBytes as any, iterations, hash: 'SHA-256' },
+      keyMaterial,
+      256
+    );
+    // الصيغة الجديدة تحمل عدد التكرارات: pbkdf2$<iterations>$<hex>
+    return { hash: `pbkdf2$${iterations}$${bufferToHex(derivedBits)}`, salt: saltHex };
+  }
 
-        const derivedBits = await window.crypto.subtle.deriveBits(
-          {
-            name: 'PBKDF2',
-            salt: saltBytes as any,
-            iterations: 100000,
-            hash: 'SHA-256',
-          },
-          keyMaterial,
-          256
-        );
-
-        return {
-          hash: bufferToHex(derivedBits),
-          salt: saltHex,
-        };
-      } catch (err) {
-        console.warn('WebCrypto PBKDF2 failed, using SHA-256 fallback:', err);
-      }
-    }
-
-    // Fallback: SHA-256 with salt
-    const combined = new Uint8Array(secretBytes.length + saltBytes.length);
-    combined.set(secretBytes);
-    combined.set(saltBytes, secretBytes.length);
-
-    if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
-      const hashBuffer = await window.crypto.subtle.digest('SHA-256', combined);
-      return { hash: bufferToHex(hashBuffer), salt: saltHex };
-    }
-
-    // Pure JS fallback in rare environments without SubtleCrypto
-    return {
-      hash: this.simpleSha256Fallback(secret + saltHex),
-      salt: saltHex,
-    };
+  /** كلمات المرور: 600 ألف تكرار (توصية OWASP). رموز PIN تبقى 100 ألف حتى لا يتأخر لوح الأرقام. */
+  static async hashPassword(secret: string): Promise<{ hash: string; salt: string }> {
+    return this.hashSecret(secret, undefined, 600000);
   }
 
   /**
@@ -118,8 +96,20 @@ export class CryptoService {
   static async verifySecret(secret: string, storedHash: string, storedSalt: string): Promise<boolean> {
     if (!secret || !storedHash || !storedSalt) return false;
     try {
-      const result = await this.hashSecret(secret, storedSalt);
-      return result.hash.toLowerCase() === storedHash.toLowerCase();
+      let iterations = 100000;
+      let expectedHex = storedHash;
+      const m = /^pbkdf2\$(\d+)\$([0-9a-f]+)$/i.exec(storedHash);
+      if (m) {
+        iterations = parseInt(m[1], 10);
+        expectedHex = m[2];
+      }
+      const result = await this.hashSecret(secret, storedSalt, iterations);
+      const got = result.hash.replace(/^pbkdf2\$\d+\$/, '').toLowerCase();
+      const exp = expectedHex.toLowerCase();
+      if (got.length !== exp.length) return false;
+      let diff = 0;
+      for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ exp.charCodeAt(i);
+      return diff === 0;
     } catch (e) {
       console.error('Password verification error:', e);
       return false;
@@ -130,12 +120,13 @@ export class CryptoService {
    * اشتقاق مفتاح AES-GCM من عبارة سرية
    */
   private static async getStorageCryptoKey(): Promise<CryptoKey | null> {
-    if (typeof window === 'undefined' || !window.crypto || !window.crypto.subtle) {
+    const webCrypto: Crypto | undefined = (globalThis as any).crypto;
+    if (!webCrypto || !webCrypto.subtle) {
       return null;
     }
     try {
       const enc = new TextEncoder();
-      const rawKey = enc.encode(STORAGE_APP_KEY_MATERIAL);
+      const rawKey = enc.encode(LEGACY_STORAGE_KEY_MATERIAL);
       const hash = await window.crypto.subtle.digest('SHA-256', rawKey);
       return await window.crypto.subtle.importKey(
         'raw',
@@ -150,40 +141,9 @@ export class CryptoService {
   }
 
   /**
-   * تشفير البيانات الحساسة قبل الحفظ في localStorage
-   */
-  static async encryptData(plaintext: string): Promise<string> {
-    if (!plaintext) return '';
-    try {
-      const key = await this.getStorageCryptoKey();
-      if (key && window.crypto && window.crypto.subtle) {
-        const iv = new Uint8Array(12);
-        window.crypto.getRandomValues(iv);
-        const enc = new TextEncoder();
-        const dataBytes = enc.encode(plaintext);
-
-        const ciphertext = await window.crypto.subtle.encrypt(
-          { name: 'AES-GCM', iv },
-          key,
-          dataBytes
-        );
-
-        const ivHex = bufferToHex(iv.buffer);
-        const ctHex = bufferToHex(ciphertext);
-        return `${ENCRYPTED_PREFIX}${ivHex}:${ctHex}`;
-      }
-    } catch (e) {
-      console.warn('CryptoService.encryptData failed, using obfuscation fallback:', e);
-    }
-
-    // Obfuscation fallback if WebCrypto is unavailable
-    return `${ENCRYPTED_PREFIX}B64:` + btoa(unescape(encodeURIComponent(plaintext)));
-  }
-
-  /**
    * فك تشفير البيانات الحساسة عند القراءة فقط من localStorage
    */
-  static async decryptData(storedValue: string): Promise<string> {
+  static async decryptLegacyData(storedValue: string): Promise<string> {
     if (!storedValue) return '';
     // If not encrypted, return as is (for backwards-compatibility and migration)
     if (!storedValue.startsWith(ENCRYPTED_PREFIX)) {
@@ -238,9 +198,8 @@ export class CryptoService {
       payload: jsonPayload,
     };
 
-    if (!password) {
-      // Standard encrypted export using device storage key
-      return await this.encryptData(JSON.stringify(exportData));
+    if (!password || password.length < 6) {
+      throw new Error('PASSWORD_REQUIRED');
     }
 
     // Password-based PBKDF2 + AES-GCM export
@@ -290,7 +249,7 @@ export class CryptoService {
       return JSON.stringify(packageObj, null, 2);
     } catch (e) {
       console.error('Password backup export error:', e);
-      return await this.encryptData(JSON.stringify(exportData));
+      throw e;
     }
   }
 
@@ -349,7 +308,7 @@ export class CryptoService {
       }
 
       // Try regular decryptData
-      const decrypted = await this.decryptData(fileContent);
+      const decrypted = await this.decryptLegacyData(fileContent);
       if (decrypted.trim().startsWith('{')) {
         const obj = JSON.parse(decrypted);
         return obj.payload || decrypted;
@@ -362,18 +321,5 @@ export class CryptoService {
       console.error('Import backup decrypt error:', err);
       return null;
     }
-  }
-
-  /**
-   * خوارزمية سريعة كخيار احتياطي لبيئات بدون WebCrypto
-   */
-  private static simpleSha256Fallback(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash |= 0;
-    }
-    return Math.abs(hash).toString(16).padStart(32, '0');
   }
 }

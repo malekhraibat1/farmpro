@@ -1,5 +1,6 @@
+import { uid } from '../services/saleService';
+import { receiveBatch, normalizeMedicine } from '../services/inventoryService';
 import React, { useState, useRef } from 'react';
-import * as XLSX from 'xlsx';
 import {
   X,
   FileSpreadsheet,
@@ -97,7 +98,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   };
 
   // 1. Download ready-made Excel template
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     const templateData = [
       {
         'اسم الصنف': 'بانادول اكسترا 500 ملغ',
@@ -157,27 +158,24 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       },
     ];
 
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-
-    // Auto-fit column widths
-    worksheet['!cols'] = [
-      { wch: 26 }, // اسم الصنف
-      { wch: 12 }, // سعر البيع
-      { wch: 12 }, // سعر الشراء
-      { wch: 10 }, // الكمية
-      { wch: 18 }, // الباركود
-      { wch: 28 }, // الاسم العلمي
-      { wch: 22 }, // التصنيف
-      { wch: 10 }, // الوحدة
-      { wch: 14 }, // تاريخ الصلاحية
-      { wch: 14 }, // رقم التشغيلة
-      { wch: 16 }, // الشركة المصنعة
-      { wch: 12 }, // الحد الادنى
-    ];
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'الأصناف');
-    XLSX.writeFile(workbook, 'نموذج_استيراد_اصناف_الصيدلية.xlsx');
+    const { default: ExcelJS } = await import('exceljs');
+    const widths = [26, 12, 12, 10, 18, 28, 22, 10, 14, 14, 16, 12];
+    const headers = Object.keys(templateData[0]);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('الأصناف', { views: [{ rightToLeft: true }] });
+    worksheet.columns = headers.map((h, i) => ({ header: h, key: h, width: widths[i] || 14 }));
+    worksheet.getRow(1).font = { bold: true };
+    templateData.forEach(row => worksheet.addRow(row));
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'نموذج_استيراد_اصناف_الصيدلية.xlsx';
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   // 2. Handle File Upload & Parse
@@ -189,23 +187,83 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     setIsProcessing(true);
     setFileName(file.name);
 
-    const reader = new FileReader();
+    const MAX_BYTES = 8 * 1024 * 1024;
+    const MAX_ROWS = 20000;
 
-    reader.onload = evt => {
+    // قيم الخلايا قد تأتي ككائنات (نص منسّق، معادلة، رابط) فنحوّلها لقيمة بسيطة
+    const normalizeCell = (v: any): any => {
+      if (v === null || v === undefined) return undefined;
+      if (v instanceof Date) return v;
+      if (typeof v === 'object') {
+        if ('result' in v) return normalizeCell((v as any).result);
+        if ('richText' in v) return (v as any).richText.map((t: any) => t.text).join('');
+        if ('text' in v) return (v as any).text;
+        return String(v);
+      }
+      return v;
+    };
+
+    // قارئ CSV بسيط يدعم الاقتباس والفواصل داخل الحقول
+    const parseCsv = (text: string): any[][] => {
+      const rows: any[][] = [];
+      let row: string[] = [];
+      let cell = '';
+      let inQuotes = false;
+      const t = text.replace(/^\uFEFF/, '');
+      const delimiter = (t.split('\n')[0] || '').split(';').length > (t.split('\n')[0] || '').split(',').length ? ';' : ',';
+      for (let i = 0; i < t.length; i++) {
+        const c = t[i];
+        if (inQuotes) {
+          if (c === '"' && t[i + 1] === '"') { cell += '"'; i++; }
+          else if (c === '"') inQuotes = false;
+          else cell += c;
+        } else if (c === '"') inQuotes = true;
+        else if (c === delimiter) { row.push(cell); cell = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && t[i + 1] === '\n') i++;
+          row.push(cell); cell = '';
+          rows.push(row); row = [];
+        } else cell += c;
+      }
+      if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+      return rows;
+    };
+
+    const readRows = async (): Promise<any[][]> => {
+      const lower = file.name.toLowerCase();
+      if (file.size > MAX_BYTES) {
+        throw new Error('حجم الملف كبير (الحد الأقصى 8 ميغابايت). قسّمه إلى ملفات أصغر.');
+      }
+      if (lower.endsWith('.csv')) {
+        return parseCsv(await file.text());
+      }
+      if (lower.endsWith('.xls')) {
+        throw new Error('صيغة .xls القديمة غير مدعومة. افتح الملف في Excel واحفظه بصيغة .xlsx ثم أعد المحاولة.');
+      }
+      const { default: ExcelJS } = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(await file.arrayBuffer());
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
+        throw new Error('الملف لا يحتوي على أي أوراق عمل (Sheets).');
+      }
+      const out: any[][] = [];
+      worksheet.eachRow({ includeEmpty: false }, row => {
+        const vals = Array.isArray(row.values) ? (row.values as any[]).slice(1) : [];
+        out.push(vals.map(normalizeCell));
+      });
+      return out;
+    };
+
+    (async () => {
       try {
-        const data = evt.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
-
-        const firstSheetName = workbook.SheetNames[0];
-        if (!firstSheetName) {
-          throw new Error('الملف لا يحتوي على أي أوراق عمل (Sheets).');
-        }
-
-        const worksheet = workbook.Sheets[firstSheetName];
-        const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+        const jsonRows = await readRows();
 
         if (!jsonRows || jsonRows.length === 0) {
           throw new Error('ملف الإكسل فارغ ولا يحتوي على بيانات.');
+        }
+        if (jsonRows.length > MAX_ROWS) {
+          throw new Error(`عدد الصفوف كبير (أكثر من ${MAX_ROWS}). قسّم الملف إلى أجزاء.`);
         }
 
         // Find header row (the first row with string items)
@@ -221,9 +279,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           throw new Error('لم يتم العثور على صف العناوين أو الأعمدة في الملف.');
         }
 
-        const headers = (jsonRows[headerRowIndex] || []).map((h: any) =>
-          String(h || '').trim()
-        );
+        const headers = (jsonRows[headerRowIndex] || []).map((h: any) => String(h || '').trim());
 
         // Convert the remaining rows to object format
         const rows: any[] = [];
@@ -232,10 +288,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           if (!rowValues || rowValues.every((val: any) => val === undefined || val === null || val === '')) {
             continue; // Skip empty rows
           }
-
-          const rowObj: Record<string, any> = {};
+          const rowObj: Record<string, any> = Object.create(null);
           headers.forEach((header, idx) => {
-            if (header) {
+            if (header && header !== '__proto__' && header !== 'constructor') {
               rowObj[header] = rowValues[idx];
             }
           });
@@ -248,11 +303,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
         setRawHeaders(headers);
         setRawDataRows(rows);
-
-        // Auto-detect columns
-        const detectedMapping = autoDetectColumns(headers);
-        setMapping(detectedMapping);
-
+        setMapping(autoDetectColumns(headers));
         setStep('mapping');
       } catch (err: any) {
         console.error('Failed to parse Excel:', err);
@@ -260,14 +311,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       } finally {
         setIsProcessing(false);
       }
-    };
-
-    reader.onerror = () => {
-      setIsProcessing(false);
-      setParseError('فشلت قراءة الملف من الجهاز.');
-    };
-
-    reader.readAsBinaryString(file);
+    })();
   };
 
   // Helper to auto detect column names from headers
@@ -527,28 +571,34 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       }
 
       if (matchedMed && duplicatePolicy === 'update') {
-        // Update existing item's price, and add or replace stock
-        const updated: Medicine = {
+        // تحديث بيانات الصنف، وإضافة الكمية الجديدة كتشغيلة مستقلة (بتاريخها وتكلفتها)
+        let updated: Medicine = {
           ...matchedMed,
           tradeName: item.tradeName || matchedMed.tradeName,
           sellPrice: item.sellPrice > 0 ? item.sellPrice : matchedMed.sellPrice,
-          purchasePrice: item.purchasePrice > 0 ? item.purchasePrice : matchedMed.purchasePrice,
-          stockQuantity: matchedMed.stockQuantity + item.stockQuantity, // Add to current stock
           barcode: item.barcode || matchedMed.barcode,
           genericName: item.genericName || matchedMed.genericName,
           category: item.category || matchedMed.category,
           unit: item.unit || matchedMed.unit,
-          expiryDate: item.expiryDate || matchedMed.expiryDate,
-          batchNumber: item.batchNumber || matchedMed.batchNumber,
           manufacturer: item.manufacturer || matchedMed.manufacturer,
         };
+        if (item.stockQuantity > 0) {
+          updated = receiveBatch(updated, {
+            batchNumber: item.batchNumber || 'IMPORT',
+            expiryDate: item.expiryDate || matchedMed.expiryDate,
+            quantity: item.stockQuantity,
+            unitCost: item.purchasePrice > 0 ? item.purchasePrice : matchedMed.purchasePrice,
+          });
+        } else {
+          updated = normalizeMedicine(updated);
+        }
         updatedMeds.push(updated);
         return;
       }
 
       // Add as brand new medicine
       const newMed: Medicine = {
-        id: `med-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
+        id: uid('med'),
         barcode: item.barcode,
         tradeName: item.tradeName,
         genericName: item.genericName,
@@ -591,7 +641,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             <div>
               <h3 className="text-lg font-black tracking-tight flex items-center gap-2">
                 <span>استيراد الأصناف والأسعار عبر ملف إكسل</span>
-                <span className="text-[10px] font-bold bg-white/25 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <span className="text-xs font-bold bg-white/25 px-2 py-0.5 rounded-full uppercase tracking-wider">
                   Excel / CSV (.xlsx)
                 </span>
               </h3>
@@ -617,7 +667,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 step === 'upload' ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'
               }`}
             >
-              <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center text-[10px]">
+              <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center text-xs">
                 1
               </span>
               <span>رفع الملف أو القالب</span>
@@ -630,7 +680,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 step === 'mapping' ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'
               }`}
             >
-              <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center text-[10px]">
+              <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center text-xs">
                 2
               </span>
               <span>تطابق الأعمدة (الاسم، السعر، المخزون)</span>
@@ -643,7 +693,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 step === 'preview' ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'
               }`}
             >
-              <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center text-[10px]">
+              <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center text-xs">
                 3
               </span>
               <span>المعاينة والتأكيد</span>
@@ -670,7 +720,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-950/30 dark:via-teal-950/30 dark:to-cyan-950/30 border border-teal-200 dark:border-teal-800 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-md bg-teal-600 text-white font-black text-[10px]">
+                    <span className="px-2 py-0.5 rounded-md bg-teal-600 text-white font-black text-xs">
                       موصى به
                     </span>
                     <h4 className="font-black text-slate-900 dark:text-white text-sm">
@@ -699,7 +749,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".xlsx, .xls, .csv"
+                  accept=".xlsx,.csv"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
@@ -712,7 +762,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   انقر هنا لاختيار ملف إكسل أو اسحبه وأفلته
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
-                  يدعم الملفات بصيغ Excel (.xlsx, .xls) وكذلك CSV. يمكنك استيراد أي ملف لديك من شركات الأدوية أو المستودعات أو برنامجك القديم.
+                  يدعم ملفات Excel بصيغة (.xlsx) وملفات CSV. إن كان ملفك بصيغة .xls القديمة فاحفظه من Excel بصيغة .xlsx أولاً. يمكنك استيراد أي ملف لديك من شركات الأدوية أو المستودعات أو برنامجك القديم.
                 </p>
 
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] text-teal-700 dark:text-teal-300 font-bold">
@@ -769,7 +819,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               <div className="space-y-1">
                 <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <span>تحديد أعمدة ملف الإكسل المناسبة</span>
-                  <span className="text-[10px] text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-full font-bold">
+                  <span className="text-xs text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-full font-bold">
                     قم بمطابقة أسماء الأعمدة في ملفك
                   </span>
                 </h4>
@@ -787,7 +837,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <span>اسم الصنف / الدواء</span>
                       <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400">إلزامي</span>
+                    <span className="text-xs font-bold text-teal-600 dark:text-teal-400">إلزامي</span>
                   </div>
                   <select
                     value={mapping.tradeName}
@@ -810,7 +860,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                       <span>سعر البيع للجمهور ({settings.currency})</span>
                       <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400">إلزامي</span>
+                    <span className="text-xs font-bold text-teal-600 dark:text-teal-400">إلزامي</span>
                   </div>
                   <select
                     value={mapping.sellPrice}
@@ -965,7 +1015,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     />
                     <div>
                       <div className="font-bold">تحديث الأسعار وإضافة الكمية</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
+                      <div className="text-xs text-slate-500 mt-0.5">
                         يعدّل السعر ويضيف الكمية الجديدة للرصيد الحالي (موصى به).
                       </div>
                     </div>
@@ -987,7 +1037,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     />
                     <div>
                       <div className="font-bold">تخطي الأصناف المكررة</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
+                      <div className="text-xs text-slate-500 mt-0.5">
                         إضافة الأصناف الجديدة فقط دون لمس الأصناف القديمة.
                       </div>
                     </div>
@@ -1009,7 +1059,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     />
                     <div>
                       <div className="font-bold">إضافة كأصناف جديدة دائماً</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
+                      <div className="text-xs text-slate-500 mt-0.5">
                         تكرار الصنف كدفعة منفصلة برقم كود جديد.
                       </div>
                     </div>
@@ -1122,7 +1172,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                           !item.isValid ? 'bg-rose-50/50 dark:bg-rose-950/20' : ''
                         }`}
                       >
-                        <td className="py-2 px-3 text-slate-400 font-mono text-[10px]">{idx + 1}</td>
+                        <td className="py-2 px-3 text-slate-400 font-mono text-xs">{idx + 1}</td>
                         <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-100">
                           {item.tradeName || <span className="text-rose-500 italic">بدون اسم (مرفوض)</span>}
                         </td>
@@ -1135,7 +1185,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                         <td className="py-2 px-3 font-mono font-bold">
                           {item.stockQuantity} {item.unit}
                         </td>
-                        <td className="py-2 px-3 font-mono text-[10px] text-slate-400">
+                        <td className="py-2 px-3 font-mono text-xs text-slate-400">
                           {item.barcode}
                         </td>
                         <td className="py-2 px-3 text-slate-500 text-[11px]">{item.category}</td>

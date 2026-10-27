@@ -49,7 +49,7 @@ export const QRCodeDisplay: React.FC<QRCodeProps> = ({
         className="qr-fallback hidden absolute inset-0 flex-col items-center justify-center p-4 text-center bg-slate-50 text-slate-700 text-xs font-mono"
       >
         <div className="font-bold text-slate-900 mb-1">امسح الرابط أو انسخه:</div>
-        <div className="text-[10px] break-all bg-white p-2 rounded-lg border border-slate-200 select-all">
+        <div className="text-xs break-all bg-white p-2 rounded-lg border border-slate-200 select-all">
           {value}
         </div>
       </div>

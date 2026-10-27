@@ -432,7 +432,7 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
                 <div className="p-5 space-y-3">
                   <div className="flex items-center justify-between">
                     <span
-                      className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${
+                      className={`text-xs px-2.5 py-1 rounded-full font-bold ${
                         entity.type === 'pharmacy'
                           ? 'bg-purple-100 text-purple-800'
                           : entity.type === 'company' || entity.type === 'supplier'
@@ -492,7 +492,7 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
                   <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-1">
                     <div className="flex justify-between items-center text-xs text-slate-500">
                       <span>الرصيد المالي الحالي:</span>
-                      <span className="text-[10px]">
+                      <span className="text-xs">
                         سقف الائتمان: {entity.creditLimit.toLocaleString()} {settings.currency}
                       </span>
                     </div>

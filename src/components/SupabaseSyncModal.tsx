@@ -150,6 +150,61 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
     }
   };
 
+  // ---- حساب Supabase (مصادقة حقيقية: كل صيدلية ترى بياناتها فقط) ----
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPass, setAuthPass] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authMsg, setAuthMsg] = useState('');
+  const [signedInEmail, setSignedInEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    if (config.url && config.anonKey) {
+      SupabaseService.getSessionEmail().then(e => alive && setSignedInEmail(e));
+    } else {
+      setSignedInEmail(null);
+    }
+    return () => {
+      alive = false;
+    };
+  }, [config.url, config.anonKey]);
+
+  const handleAuthSignIn = async () => {
+    setAuthBusy(true);
+    setAuthMsg('');
+    const res = await SupabaseService.signIn(authEmail, authPass);
+    setAuthBusy(false);
+    if (res.success) {
+      setSignedInEmail(authEmail.trim());
+      setAuthPass('');
+      setAuthMsg('تم تسجيل الدخول بنجاح.');
+    } else {
+      setAuthMsg(res.error || 'فشل تسجيل الدخول.');
+    }
+  };
+
+  const handleAuthSignUp = async () => {
+    if (authPass.length < 8) {
+      setAuthMsg('كلمة المرور يجب أن تكون 8 أحرف على الأقل.');
+      return;
+    }
+    setAuthBusy(true);
+    setAuthMsg('');
+    const res = await SupabaseService.signUp(authEmail, authPass, 'admin', '');
+    setAuthBusy(false);
+    if (res.success) {
+      setAuthMsg('تم إنشاء الحساب. إن كان تأكيد البريد مفعّلاً في Supabase فافتح رسالة التأكيد ثم سجّل الدخول.');
+    } else {
+      setAuthMsg(res.error || 'تعذّر إنشاء الحساب.');
+    }
+  };
+
+  const handleAuthSignOut = async () => {
+    await SupabaseService.signOut();
+    setSignedInEmail(null);
+    setAuthMsg('تم تسجيل الخروج.');
+  };
+
   const handlePushData = async () => {
     setIsSyncing(true);
     setIsRlsError(false);
@@ -268,7 +323,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
                       <span className="font-bold text-slate-900 text-xs">
                         الصيدلية الحالية: {activeInstance.pharmacyName}
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-[10px] font-bold">
+                      <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-xs font-bold">
                         {activeInstance.code}
                       </span>
                     </div>
@@ -278,7 +333,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
                   </div>
                 </div>
 
-                <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold shrink-0">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold shrink-0">
                   نسخة معزولة
                 </span>
               </div>
@@ -350,7 +405,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
                     <label className="text-slate-700 font-bold">
                       1. رابط المشروع (Project URL)
                     </label>
-                    <span className="text-[10px] text-slate-500 font-mono" dir="ltr">
+                    <span className="text-xs text-slate-500 font-mono" dir="ltr">
                       https://[your-project-ref].supabase.co
                     </span>
                   </div>
@@ -371,7 +426,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
                         <Wand2 className="w-4 h-4 text-amber-600 shrink-0" />
                         <div>
                           <p className="font-bold text-[11px]">{urlSuggestion.reason}</p>
-                          <code className="text-[10px] text-amber-800 font-mono font-bold" dir="ltr">
+                          <code className="text-xs text-amber-800 font-mono font-bold" dir="ltr">
                             {urlSuggestion.cleanedUrl}
                           </code>
                         </div>
@@ -386,7 +441,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
                     </div>
                   )}
 
-                  <span className="text-[10px] text-slate-400 mt-1 block">
+                  <span className="text-xs text-slate-400 mt-1 block">
                     تأخذه من: Supabase Project Settings (أيقونة الترس) -&gt; API -&gt; Project URL
                   </span>
                 </div>
@@ -403,7 +458,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
                     className="w-full p-2.5 rounded-xl border border-slate-200 bg-white font-mono text-slate-900 text-xs shadow-inner"
                     dir="ltr"
                   />
-                  <span className="text-[10px] text-slate-400 mt-1 block">
+                  <span className="text-xs text-slate-400 mt-1 block">
                     تأخذه من: Supabase Project Settings -&gt; API -&gt; Project API keys -&gt; مفتاح anon (public)
                   </span>
                 </div>
@@ -467,6 +522,70 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
               </div>
 
               {/* Sync Actions (Push / Pull) */}
+              {/* Supabase account (real authentication) */}
+              <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3">
+                <h5 className="font-black text-slate-900 text-sm">حساب الصيدلية على Supabase</h5>
+                {signedInEmail ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5">
+                      مسجَّل الدخول: {signedInEmail}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAuthSignOut}
+                      className="px-3 py-1.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100"
+                    >
+                      تسجيل الخروج
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      لا تُرفع أي بيانات قبل تسجيل الدخول. كل حساب يرى بيانات صيدليته فقط. أنشئ حساباً جديداً مرة واحدة ثم سجّل الدخول من كل جهاز.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="email"
+                        dir="ltr"
+                        autoComplete="email"
+                        placeholder="البريد الإلكتروني"
+                        value={authEmail}
+                        onChange={e => setAuthEmail(e.target.value)}
+                        className="p-2.5 rounded-xl border border-slate-300 text-sm"
+                      />
+                      <input
+                        type="password"
+                        dir="ltr"
+                        autoComplete="current-password"
+                        placeholder="كلمة المرور (8 أحرف فأكثر)"
+                        value={authPass}
+                        onChange={e => setAuthPass(e.target.value)}
+                        className="p-2.5 rounded-xl border border-slate-300 text-sm"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAuthSignIn}
+                        disabled={authBusy || !authEmail || !authPass || !config.url}
+                        className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-500 text-white text-xs font-bold"
+                      >
+                        تسجيل الدخول
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAuthSignUp}
+                        disabled={authBusy || !authEmail || !authPass || !config.url}
+                        className="px-4 py-2 rounded-xl border border-emerald-700 text-emerald-800 hover:bg-emerald-50 disabled:opacity-50 text-xs font-bold"
+                      >
+                        إنشاء حساب جديد
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {authMsg && <p role="status" className="text-xs font-bold text-slate-700">{authMsg}</p>}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Push to Supabase */}
                 <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3 flex flex-col justify-between">
@@ -483,7 +602,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
                   <button
                     type="button"
                     onClick={handlePushData}
-                    disabled={isSyncing || !config.url}
+                    disabled={isSyncing || !config.url || !signedInEmail}
                     className={`w-full py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 ${
                       config.url
                         ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 active:scale-95'
@@ -510,7 +629,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
                   <button
                     type="button"
                     onClick={handlePullData}
-                    disabled={isSyncing || !config.url}
+                    disabled={isSyncing || !config.url || !signedInEmail}
                     className={`w-full py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 ${
                       config.url
                         ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20 active:scale-95'
@@ -594,20 +713,20 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
                     <div className="p-2.5 rounded-xl bg-rose-100/80 border border-rose-300 text-rose-900">
                       <strong className="block mb-1 text-rose-950">❌ الرابط الخاطئ (رابط المتصفح):</strong>
-                      <code className="text-[10px] break-all block" dir="ltr">
+                      <code className="text-xs break-all block" dir="ltr">
                         https://supabase.com/dashboard/project/abcdefgh...
                       </code>
-                      <span className="text-[10px] text-rose-800 mt-1 block">
+                      <span className="text-xs text-rose-800 mt-1 block">
                         (هذا رابط صفحة لوحة التحكم ولا يعمل كـ API)
                       </span>
                     </div>
 
                     <div className="p-2.5 rounded-xl bg-emerald-100/80 border border-emerald-300 text-emerald-950">
                       <strong className="block mb-1 text-emerald-950">✅ الرابط الصحيح (Project URL):</strong>
-                      <code className="text-[10px] break-all block font-bold" dir="ltr">
+                      <code className="text-xs break-all block font-bold" dir="ltr">
                         https://abcdefghijklmnopqrst.supabase.co
                       </code>
-                      <span className="text-[10px] text-emerald-800 mt-1 block">
+                      <span className="text-xs text-emerald-800 mt-1 block">
                         (تأخذه من Project Settings -&gt; API)
                       </span>
                     </div>
@@ -691,7 +810,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
                   </button>
                 </div>
 
-                <div className="relative rounded-xl overflow-hidden border border-rose-200 bg-slate-950 text-emerald-400 font-mono text-[10px] p-3 max-h-[140px] overflow-y-auto dir-ltr text-left">
+                <div className="relative rounded-xl overflow-hidden border border-rose-200 bg-slate-950 text-emerald-400 font-mono text-xs p-3 max-h-[140px] overflow-y-auto dir-ltr text-left">
                   <pre>{SUPABASE_RLS_FIX_SQL}</pre>
                 </div>
               </div>

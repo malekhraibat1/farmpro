@@ -43,9 +43,14 @@ export const InstanceLoginModal: React.FC<InstanceLoginModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+    const locked = InstanceService.lockSeconds(activeInstance.id);
+    if (locked > 0) {
+      setErrorMsg(`محاولات كثيرة خاطئة. انتظر ${locked} ثانية ثم أعد المحاولة.`);
+      return;
+    }
 
     if (!username.trim() || !password) {
       setErrorMsg('يرجى إدخال اسم المستخدم وكلمة المرور.');
@@ -54,7 +59,7 @@ export const InstanceLoginModal: React.FC<InstanceLoginModalProps> = ({
 
     setIsSubmitting(true);
 
-    const ok = InstanceService.verifyAndAuthenticate(activeInstance.id, username, password);
+    const ok = await InstanceService.verifyAndAuthenticate(activeInstance.id, username, password);
     if (ok) {
       setIsSubmitting(false);
       onSuccessLogin();
@@ -73,7 +78,7 @@ export const InstanceLoginModal: React.FC<InstanceLoginModalProps> = ({
             <Building2 className="w-8 h-8 text-cyan-400" />
           </div>
 
-          <span className="text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-3 py-0.5 rounded-full inline-block mb-1.5">
+          <span className="text-xs font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-3 py-0.5 rounded-full inline-block mb-1.5">
             نسخة صيدلية محمية ببياناتها الخاصة
           </span>
 
@@ -131,7 +136,7 @@ export const InstanceLoginModal: React.FC<InstanceLoginModalProps> = ({
                 <label className="block text-xs font-black text-slate-800 dark:text-slate-200">
                   كلمة المرور (Password)
                 </label>
-                <span className="text-[10px] text-slate-400">مشفرة ومحمية</span>
+                <span className="text-xs text-slate-400">مشفرة ومحمية</span>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
@@ -180,7 +185,7 @@ export const InstanceLoginModal: React.FC<InstanceLoginModalProps> = ({
           )}
 
           {/* Master recovery info */}
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 text-center leading-relaxed">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs text-slate-500 text-center leading-relaxed">
             نسيت كلمة المرور؟ يرجى التواصل مع المهندس المطور <b>مالك حريبات 0594345464</b>
           </div>
         </div>

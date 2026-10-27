@@ -1,3 +1,4 @@
+import { lineCostOf } from '../services/inventoryService';
 import React from 'react';
 import {
   TrendingUp,
@@ -79,16 +80,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Low stock
   const lowStockMeds = (medicines || []).filter(m => m && m.stockQuantity <= m.minQuantity);
 
-  // Estimated gross profit today (Sales - Purchase cost)
+  // مجمل ربح اليوم (المبيعات - التكلفة المسجّلة وقت البيع) ثم يُخصم الخصم الإضافي
   let todayProfit = 0;
   todaySales.forEach(s => {
+    todayProfit -= s?.discount || 0;
     if (s && Array.isArray(s.items)) {
       s.items.forEach(item => {
         if (item) {
           const med = (medicines || []).find(m => m && m.id === item.medicineId);
-          if (med) {
-            todayProfit += ((item.unitPrice || 0) - (med.purchasePrice || 0)) * (item.quantity || 1);
-          }
+          todayProfit += (item.subtotal || 0) - lineCostOf(item, med);
         }
       });
     }
@@ -103,7 +103,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex items-center gap-2 mb-2 text-xs text-slate-300">
               <span className="font-semibold text-slate-200">النظام متزامن ومحمي</span>
               <span>•</span>
-              <span className="text-slate-400">تصميم المهندس مالك حريبات</span>
+              <span className="text-slate-300">تصميم المهندس مالك حريبات</span>
               <span>•</span>
               <span className="text-emerald-400 font-bold">لوحة التحكم</span>
             </div>
@@ -254,7 +254,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div>
                   <div className="flex items-center justify-between">
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      className={`text-xs px-2 py-0.5 rounded-full font-bold ${
                         ent.type === 'pharmacy'
                           ? 'bg-purple-100 text-purple-700'
                           : ent.type === 'company' || ent.type === 'supplier'
@@ -293,7 +293,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     }`}
                   >
                     {Math.abs(ent.currentBalance).toLocaleString()} {settings.currency}{' '}
-                    <span className="text-[10px] font-semibold">
+                    <span className="text-xs font-semibold">
                       {ent.currentBalance > 0
                         ? '(لنا)'
                         : ent.currentBalance < 0
@@ -338,7 +338,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
                   <span>{tx.note || tx.referenceNumber}</span>
-                  <span className="font-mono text-[10px]">{tx.date.split(' ')[0]}</span>
+                  <span className="font-mono text-xs">{tx.date.split(' ')[0]}</span>
                 </div>
               </div>
             ))}

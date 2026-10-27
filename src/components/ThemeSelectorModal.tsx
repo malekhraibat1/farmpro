@@ -68,7 +68,7 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
             <div>
               <div className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                 <span>تعزيز سواد ووضوح الخطوط (Font Contrast Boost)</span>
-                <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.2 rounded-full font-bold">
+                <span className="text-xs bg-amber-200 text-amber-900 px-2 py-0.2 rounded-full font-bold">
                   موصى به
                 </span>
               </div>
@@ -121,11 +121,11 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-slate-500 font-mono block">
+                        <span className="text-xs text-slate-500 font-mono block">
                           {theme.nameEn}
                         </span>
                         {theme.isHighContrast && (
-                          <span className="text-[9px] bg-slate-900 text-white font-black px-1.5 py-0.2 rounded">
+                          <span className="text-[11px] bg-slate-900 text-white font-black px-1.5 py-0.2 rounded">
                             وضوح فائق
                           </span>
                         )}
@@ -157,7 +157,7 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
                     </div>
 
                     <span
-                      className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${
+                      className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
                         isSelected
                           ? 'bg-slate-950 text-white'
                           : 'bg-slate-100 text-slate-800 group-hover:bg-slate-200'

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import {
   Entity,
   Medicine,
@@ -8,6 +8,9 @@ import {
   AppSettings,
   UserRole,
   TransactionType,
+  PurchaseInvoice,
+  StockMovement,
+  Shift,
 } from './types';
 import { AppStorage, defaultSettings } from './services/storage';
 import { ThemeService, ThemeId } from './services/themeService';
@@ -15,26 +18,42 @@ import { SupabaseService } from './services/supabaseService';
 import { Header } from './components/Header';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { MobileNav } from './components/MobileNav';
-import { AboutModal } from './components/AboutModal';
 import { SplashScreen } from './components/SplashScreen';
 import { SecurityLockModal } from './components/SecurityLockModal';
-import { ThemeSelectorModal } from './components/ThemeSelectorModal';
-import { DeviceSyncModal } from './components/DeviceSyncModal';
 import { DashboardView } from './views/DashboardView';
 import { EntitiesView } from './views/EntitiesView';
 import { POSView } from './views/POSView';
 import { InventoryView } from './views/InventoryView';
 import { ExpensesView } from './views/ExpensesView';
-import { ReportsView } from './views/ReportsView';
-import { SettingsView } from './views/SettingsView';
-import { SuperAdminView } from './views/SuperAdminView';
-import { TransactionsView } from './views/TransactionsView';
-import { SupabaseSyncModal } from './components/SupabaseSyncModal';
-import { PharmacyInstanceManagerModal } from './components/PharmacyInstanceManagerModal';
 import { InstanceLoginModal } from './components/InstanceLoginModal';
 import { FirstTimeSetupModal } from './components/FirstTimeSetupModal';
 import { InstanceService } from './services/instanceService';
+import { uid, round2 } from './services/saleService';
+import {
+  applySaleToMedicines,
+  makeMovement,
+  normalizeMedicine,
+  normalizeMedicines,
+  receiveBatch,
+  removeFromBatch,
+  setBatchQuantity,
+  packSizeOf,
+  expiringBatches,
+} from './services/inventoryService';
+import { AuditService } from './services/auditService';
 import { AlertCircle, Key, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react';
+
+// تحميل كسول: هذه الشاشات والنوافذ لا تُحمَّل إلا عند فتحها (يقلل حجم التحميل الأول)
+const AboutModal = lazy(() => import('./components/AboutModal').then(m => ({ default: m.AboutModal })));
+const ThemeSelectorModal = lazy(() => import('./components/ThemeSelectorModal').then(m => ({ default: m.ThemeSelectorModal })));
+const DeviceSyncModal = lazy(() => import('./components/DeviceSyncModal').then(m => ({ default: m.DeviceSyncModal })));
+const SupabaseSyncModal = lazy(() => import('./components/SupabaseSyncModal').then(m => ({ default: m.SupabaseSyncModal })));
+const PharmacyInstanceManagerModal = lazy(() => import('./components/PharmacyInstanceManagerModal').then(m => ({ default: m.PharmacyInstanceManagerModal })));
+const ReportsView = lazy(() => import('./views/ReportsView').then(m => ({ default: m.ReportsView })));
+const SettingsView = lazy(() => import('./views/SettingsView').then(m => ({ default: m.SettingsView })));
+const SuperAdminView = lazy(() => import('./views/SuperAdminView').then(m => ({ default: m.SuperAdminView })));
+const PurchasesView = lazy(() => import('./views/PurchasesView').then(m => ({ default: m.PurchasesView })));
+const TransactionsView = lazy(() => import('./views/TransactionsView').then(m => ({ default: m.TransactionsView })));
 
 export default function App() {
   // Toast notification state
@@ -54,6 +73,9 @@ export default function App() {
   );
   const [expenses, setExpenses] = useState<Expense[]>(() => AppStorage.getExpenses());
   const [settings, setSettings] = useState<AppSettings>(() => AppStorage.getSettings());
+  const [purchases, setPurchases] = useState<PurchaseInvoice[]>(() => AppStorage.getPurchases());
+  const [movements, setMovements] = useState<StockMovement[]>(() => AppStorage.getMovements());
+  const [shifts, setShifts] = useState<Shift[]>(() => AppStorage.getShifts());
 
   // Theme State
   const [currentThemeId, setCurrentThemeId] = useState<ThemeId>(() => ThemeService.getStoredTheme());
@@ -83,6 +105,9 @@ export default function App() {
     setTransactions(AppStorage.getTransactions(newInstanceId));
     setExpenses(AppStorage.getExpenses(newInstanceId));
     setSettings(AppStorage.getSettings(newInstanceId));
+    setPurchases(AppStorage.getPurchases(newInstanceId));
+    setMovements(AppStorage.getMovements(newInstanceId));
+    setShifts(AppStorage.getShifts(newInstanceId));
     setIsInstanceUnlocked(InstanceService.isInstanceAuthenticated(newInstanceId));
   }, []);
 
@@ -103,7 +128,7 @@ export default function App() {
     } else {
       // One-click drop permissions back to regular user (pharmacist) for security
       setCurrentRole('pharmacist');
-      if (currentTab === 'reports' || currentTab === 'settings' || currentTab === 'super_admin') {
+      if (currentTab === 'reports' || currentTab === 'settings' || currentTab === 'super_admin' || currentTab === 'purchases') {
         setCurrentTab('dashboard');
       }
       showToast('تم تفعيل وضع المستخدم العادي (الصيدلي / الكاشير) وحجب الصلاحيات الإدارية 👤', 'info');
@@ -117,6 +142,7 @@ export default function App() {
 
   // Check URL parameters for instance/pharmacy or 1-click QR Pairing from other devices
   useEffect(() => {
+    (async () => {
     try {
       if (typeof window !== 'undefined' && window.location.search) {
         const params = new URLSearchParams(window.location.search);
@@ -136,7 +162,7 @@ export default function App() {
             handleSwitchInstance(found.id);
           } else {
             // Auto-register instance if opened via link
-            const newInst = InstanceService.createInstance({
+            const newInst = await InstanceService.createInstance({
               pharmacyName: targetCode.startsWith('PH-') ? `صيدلية (${targetCode})` : targetCode,
               ownerName: 'الصيدلي المسؤول',
               phone: '0590000000',
@@ -153,7 +179,21 @@ export default function App() {
         const syncKey = params.get('sync_key');
         if (syncUrl && syncKey) {
           const currentConfig = SupabaseService.getConfig(targetInstanceId);
-          if (currentConfig.url !== syncUrl || currentConfig.anonKey !== syncKey) {
+          const decodedUrl = decodeURIComponent(syncUrl);
+          // أمان: لا نربط الجهاز بخادم من رابط إلا إذا كان https وبموافقة صريحة من المستخدم
+          let urlOk = false;
+          try {
+            urlOk = new URL(decodedUrl).protocol === 'https:';
+          } catch {}
+          const approved =
+            urlOk &&
+            (currentConfig.url === decodedUrl ||
+              window.confirm(
+                `يطلب هذا الرابط ربط الجهاز بقاعدة البيانات التالية:\n${decodedUrl}\n\nقد تُستبدل بياناتك المحلية ببيانات هذا الخادم. هل تثق بمصدر الرابط وتريد المتابعة؟`
+              ));
+          if (!approved) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } else if (currentConfig.url !== decodedUrl || currentConfig.anonKey !== syncKey) {
             SupabaseService.saveConfig(
               {
                 url: decodeURIComponent(syncUrl),
@@ -172,6 +212,7 @@ export default function App() {
     } catch (e) {
       console.warn('URL query param parse failed:', e);
     }
+    })();
   }, [handleSwitchInstance]);
 
   // Sync to localStorage whenever states change
@@ -198,6 +239,27 @@ export default function App() {
   useEffect(() => {
     AppStorage.saveSettings(settings);
   }, [settings]);
+
+  useEffect(() => {
+    AppStorage.savePurchases(purchases);
+  }, [purchases]);
+
+  useEffect(() => {
+    AppStorage.saveMovements(movements);
+  }, [movements]);
+
+  useEffect(() => {
+    AppStorage.saveShifts(shifts);
+  }, [shifts]);
+
+  // تنبيه المستخدم إذا فشل الحفظ (مثلاً امتلاء مساحة المتصفح) بدل الفشل الصامت
+  useEffect(() => {
+    const onStorageError = () =>
+      showToast('تعذّر حفظ البيانات على هذا الجهاز (المساحة ممتلئة أو التخزين محظور). صدّر نسخة احتياطية الآن.', 'error');
+    window.addEventListener('pharma:storage-error', onStorageError);
+    return () => window.removeEventListener('pharma:storage-error', onStorageError);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Global Keyboard shortcuts (e.g. F2 for POS)
   useEffect(() => {
@@ -267,16 +329,18 @@ export default function App() {
 
   // Notifications calculation
   const now = new Date();
-  const ninetyDaysLater = new Date();
-  ninetyDaysLater.setDate(now.getDate() + 90);
 
-  const nearExpiryCount = (medicines || []).filter(m => {
-    if (!m || !m.expiryDate) return false;
-    const exp = new Date(m.expiryDate);
-    return !isNaN(exp.getTime()) && exp <= ninetyDaysLater;
-  }).length;
+  const nearExpiryCount = new Set(
+    expiringBatches(medicines || [], settings.nearExpiryDays ?? 90).map(x => x.medicine.id)
+  ).size;
 
   const lowStockCount = (medicines || []).filter(m => m && m.stockQuantity <= m.minQuantity).length;
+
+  // اسم المسؤول الحالي لتسجيله في الحركات وسجل التدقيق
+  const actorName = (): string =>
+    currentRole === 'pharmacist' || currentRole === 'accountant'
+      ? 'صيدلي مناوب'
+      : settings.ownerName || 'المدير';
 
   // Add Transaction & Update Entity Balance
   const handleAddTransaction = (
@@ -290,8 +354,14 @@ export default function App() {
     const entity = entities.find(e => e.id === entityId);
     if (!entity) return;
 
-    const newBalance =
-      direction === 'debit' ? entity.currentBalance + amount : entity.currentBalance - amount;
+    if (!(amount > 0) || !Number.isFinite(amount)) {
+      showToast('المبلغ يجب أن يكون رقماً أكبر من صفر.', 'error');
+      return;
+    }
+    amount = round2(amount);
+    const newBalance = round2(
+      direction === 'debit' ? entity.currentBalance + amount : entity.currentBalance - amount
+    );
 
     const nowStr = new Date();
     const dateFormatted = `${nowStr.toISOString().split('T')[0]} ${nowStr.toLocaleTimeString('ar-EG', {
@@ -300,7 +370,7 @@ export default function App() {
     })}`;
 
     const newTx: FinancialTransaction = {
-      id: `tx-${Date.now()}`,
+      id: uid('tx'),
       entityId,
       entityName: entity.name,
       date: dateFormatted,
@@ -308,9 +378,9 @@ export default function App() {
       type,
       direction,
       balanceAfter: newBalance,
-      referenceNumber: referenceNumber || `REF-${Math.floor(1000 + Math.random() * 9000)}`,
+      referenceNumber: referenceNumber || uid('REF').toUpperCase().slice(0, 14),
       note,
-      recordedBy: currentRole === 'admin' ? 'م. مالك حريبات' : 'صيدلي مناوب',
+      recordedBy: (currentRole === 'pharmacist' || currentRole === 'accountant' ? 'صيدلي مناوب' : (settings.ownerName || 'المدير')),
     };
 
     setTransactions(prev => [newTx, ...prev]);
@@ -330,7 +400,7 @@ export default function App() {
   const handleAddEntity = (newEntityData: Omit<Entity, 'id' | 'createdAt'>) => {
     const newEnt: Entity = {
       ...newEntityData,
-      id: `ent-${Date.now()}`,
+      id: uid('ent'),
       createdAt: new Date().toISOString().split('T')[0],
     };
     setEntities(prev => [newEnt, ...prev]);
@@ -353,6 +423,7 @@ export default function App() {
   // Delete Entity
   const handleDeleteEntity = (entityId: string) => {
     const target = entities.find(e => e.id === entityId);
+    AuditService.log('حذف حساب', `${target ? target.name : entityId} (الرصيد ${target ? target.currentBalance : '-'})`, actorName());
     setEntities(prev => prev.filter(e => e.id !== entityId));
     if (selectedEntityForLedger && selectedEntityForLedger.id === entityId) {
       setSelectedEntityForLedger(null);
@@ -376,7 +447,7 @@ export default function App() {
       setEntities(prev =>
         prev.map(e => {
           if (e.id === updatedTx.entityId) {
-            const nextBal = e.currentBalance + diff;
+            const nextBal = round2(e.currentBalance + diff);
             return { ...e, currentBalance: nextBal };
           }
           return e;
@@ -384,6 +455,7 @@ export default function App() {
       );
     }
 
+    AuditService.log('تعديل حركة مالية', `${oldTx.referenceNumber}: ${oldTx.amount} → ${updatedTx.amount} (${oldTx.entityName})`, actorName());
     showToast('تم تحديث الحركة المالية بنجاح', 'success');
   };
 
@@ -400,78 +472,271 @@ export default function App() {
     setEntities(prev =>
       prev.map(e => {
         if (e.id === targetTx.entityId) {
-          const nextBal = e.currentBalance + reversal;
+          const nextBal = round2(e.currentBalance + reversal);
           return { ...e, currentBalance: nextBal };
         }
         return e;
       })
     );
 
+    AuditService.log('حذف حركة مالية', `${targetTx.referenceNumber}: ${targetTx.amount} (${targetTx.entityName})`, actorName());
     showToast(`تم حذف الحركة ${targetTx.referenceNumber} بنجاح`, 'info');
   };
 
+  // الوردية المفتوحة حالياً (إن وُجدت)
+  const currentShift = shifts.find(sh => !sh.closedAt) || null;
+
   // Complete a Sale Invoice from POS
   const handleCompleteSale = (sale: SaleInvoice) => {
-    // 1. Save invoice
-    setSales(prev => [sale, ...prev]);
+    if (sales.some(s => s.invoiceNumber === sale.invoiceNumber)) return; // منع التسجيل المزدوج
+    const saleWithShift: SaleInvoice = currentShift ? { ...sale, shiftId: currentShift.id } : sale;
 
-    // 2. Decrement medicine stock quantities
-    setMedicines(prev =>
-      prev.map(med => {
-        const itemSold = sale.items.find(item => item.medicineId === med.id);
-        if (itemSold) {
-          return {
-            ...med,
-            stockQuantity: Math.max(0, med.stockQuantity - itemSold.quantity),
-          };
-        }
-        return med;
-      })
-    );
+    // 1. خصم المخزون (الأقدم انتهاءً أولاً) وتوليد حركات المخزون
+    const applied = applySaleToMedicines(medicines, saleWithShift.items, {
+      invoiceNumber: saleWithShift.invoiceNumber,
+      actor: saleWithShift.cashierName,
+    });
+    if (applied.failures.length > 0) {
+      console.warn('Sale stock failures:', applied.failures);
+    }
+    setMedicines(applied.medicines);
+    setMovements(prev => [...prev, ...applied.movements]);
 
-    // 3. If sold on credit for an entity, register financial transaction and update balance
-    if (sale.entityId && sale.remainingAmount > 0) {
+    // 2. حفظ الفاتورة
+    setSales(prev => [saleWithShift, ...prev]);
+
+    // 3. إذا كان البيع آجلاً: تسجيل الحركة المالية وتحديث رصيد الحساب
+    if (saleWithShift.entityId && saleWithShift.remainingAmount > 0) {
       handleAddTransaction(
-        sale.entityId,
-        sale.remainingAmount,
+        saleWithShift.entityId,
+        saleWithShift.remainingAmount,
         'invoice',
         'debit',
-        `فاتورة مبيعات آجل رقم ${sale.invoiceNumber}`,
-        sale.invoiceNumber
+        `فاتورة مبيعات آجل رقم ${saleWithShift.invoiceNumber}`,
+        saleWithShift.invoiceNumber
       );
     }
   };
 
   // Inventory handlers
   const handleAddMedicine = (newMed: Omit<Medicine, 'id'>) => {
-    const med: Medicine = {
-      ...newMed,
-      id: `med-${Date.now()}`,
-    };
+    const id = uid('med');
+    const med: Medicine = normalizeMedicine({ ...newMed, id } as Medicine);
     setMedicines(prev => [med, ...prev]);
+    if (med.stockQuantity > 0) {
+      setMovements(prev => [
+        ...prev,
+        makeMovement({ med, type: 'initial', packsDelta: med.stockQuantity, batchNumber: med.batchNumber, note: 'رصيد افتتاحي عند إضافة الصنف', actor: actorName() }),
+      ]);
+    }
   };
 
   const handleUpdateMedicine = (updatedMed: Medicine) => {
-    setMedicines(prev => prev.map(m => (m.id === updatedMed.id ? updatedMed : m)));
+    const old = medicines.find(m => m.id === updatedMed.id);
+    const next = normalizeMedicine(updatedMed);
+    setMedicines(prev => prev.map(m => (m.id === next.id ? next : m)));
+    if (old) {
+      const delta = next.stockQuantity - old.stockQuantity;
+      if (delta !== 0) {
+        setMovements(prev => [
+          ...prev,
+          makeMovement({ med: next, type: 'adjustment', packsDelta: delta, note: 'تعديل يدوي من شاشة الصنف', actor: actorName() }),
+        ]);
+        AuditService.log('تعديل كمية', `${next.tradeName}: ${old.stockQuantity} → ${next.stockQuantity}`, actorName());
+      }
+      if (old.sellPrice !== next.sellPrice || old.purchasePrice !== next.purchasePrice) {
+        AuditService.log(
+          'تعديل سعر',
+          `${next.tradeName}: بيع ${old.sellPrice}→${next.sellPrice}، تكلفة ${old.purchasePrice}→${next.purchasePrice}`,
+          actorName()
+        );
+      }
+    }
   };
 
   const handleDeleteMedicine = (id: string) => {
+    const med = medicines.find(m => m.id === id);
+    if (med) {
+      AuditService.log('حذف صنف', `${med.tradeName} (الكمية ${med.stockQuantity})`, actorName());
+      if (med.stockQuantity > 0) {
+        setMovements(prev => [
+          ...prev,
+          makeMovement({ med, type: 'write_off', packsDelta: -med.stockQuantity, note: 'حذف الصنف من النظام', actor: actorName() }),
+        ]);
+      }
+    }
     setMedicines(prev => prev.filter(m => m.id !== id));
   };
 
   const handleBulkImportMedicines = (newMeds: Medicine[], updatedMeds: Medicine[]) => {
+    const normalizedNew = normalizeMedicines(newMeds);
+    const normalizedUpd = normalizeMedicines(updatedMeds);
+    const oldById = new Map(medicines.map(m => [m.id, m]));
+    const moves: StockMovement[] = [];
+    for (const m of normalizedNew) {
+      if (m.stockQuantity > 0)
+        moves.push(makeMovement({ med: m, type: 'initial', packsDelta: m.stockQuantity, note: 'استيراد من Excel', actor: actorName() }));
+    }
+    for (const m of normalizedUpd) {
+      const o = oldById.get(m.id);
+      const d = o ? m.stockQuantity - o.stockQuantity : 0;
+      if (d !== 0) moves.push(makeMovement({ med: m, type: 'adjustment', packsDelta: d, note: 'تحديث من استيراد Excel', actor: actorName() }));
+    }
     setMedicines(prev => {
-      const updatedMap = new Map(updatedMeds.map(m => [m.id, m]));
+      const updatedMap = new Map(normalizedUpd.map(m => [m.id, m]));
       const updatedList = prev.map(m => updatedMap.get(m.id) || m);
-      return [...newMeds, ...updatedList];
+      return [...normalizedNew, ...updatedList];
     });
+    if (moves.length) setMovements(prev => [...prev, ...moves]);
+    AuditService.log('استيراد Excel', `جديد ${normalizedNew.length}، محدَّث ${normalizedUpd.length}`, actorName());
+  };
+
+  // إخراج مخزون: مرتجع لشركة أو إتلاف أو تسوية جرد
+  const handleRemoveStock = (
+    items: { medicineId: string; batchId: string; packs: number }[],
+    kind: 'supplier_return' | 'write_off',
+    opts: { entityId?: string; note?: string } = {}
+  ): { ok: boolean; error?: string; value: number } => {
+    let working = [...medicines];
+    const moves: StockMovement[] = [];
+    let value = 0;
+    for (const it of items) {
+      const idx = working.findIndex(m => m.id === it.medicineId);
+      if (idx < 0) return { ok: false, error: 'صنف غير موجود', value: 0 };
+      const med = normalizeMedicine(working[idx]);
+      const batch = med.batches?.find(b => b.id === it.batchId);
+      const r = removeFromBatch(med, it.batchId, it.packs);
+      if (!r.ok || !r.medicine) return { ok: false, error: r.error, value: 0 };
+      working[idx] = r.medicine;
+      value += round2(it.packs * (batch?.purchasePrice || 0));
+      moves.push(
+        makeMovement({
+          med,
+          type: kind,
+          packsDelta: -it.packs,
+          batchNumber: batch?.batchNumber,
+          note: opts.note || (kind === 'supplier_return' ? 'مرتجع لشركة' : 'إتلاف'),
+          actor: actorName(),
+        })
+      );
+    }
+    value = round2(value);
+    setMedicines(working);
+    setMovements(prev => [...prev, ...moves]);
+    AuditService.log(
+      kind === 'supplier_return' ? 'مرتجع لشركة' : 'إتلاف أصناف',
+      `${items.length} تشغيلة بقيمة تكلفة ${value}${opts.note ? ' - ' + opts.note : ''}`,
+      actorName()
+    );
+    // مرتجع لشركة: يُسجَّل لنا رصيد (ينقص ما علينا لها)
+    if (kind === 'supplier_return' && opts.entityId && value > 0) {
+      handleAddTransaction(opts.entityId, value, 'return', 'debit', `مرتجع أدوية للشركة${opts.note ? ' - ' + opts.note : ''}`, uid('RET').toUpperCase().slice(0, 14));
+    }
+    return { ok: true, value };
+  };
+
+  // تسوية جرد: ضبط كميات التشغيلات على ما عُدَّ فعلياً
+  const handleStocktake = (counts: { medicineId: string; batchId: string; counted: number }[]): number => {
+    let working = [...medicines];
+    const moves: StockMovement[] = [];
+    for (const c of counts) {
+      const idx = working.findIndex(m => m.id === c.medicineId);
+      if (idx < 0) continue;
+      const before = normalizeMedicine(working[idx]);
+      const batch = before.batches?.find(b => b.id === c.batchId);
+      const r = setBatchQuantity(before, c.batchId, c.counted);
+      if (!r || r.delta === 0) continue;
+      working[idx] = r.medicine;
+      moves.push(
+        makeMovement({
+          med: before,
+          type: 'stocktake',
+          packsDelta: r.delta,
+          batchNumber: batch?.batchNumber,
+          note: `جرد: النظام ${batch?.quantity} ← المعدود ${c.counted}`,
+          actor: actorName(),
+        })
+      );
+    }
+    if (moves.length) {
+      setMedicines(working);
+      setMovements(prev => [...prev, ...moves]);
+      AuditService.log('تسوية جرد', `${moves.length} تشغيلة عُدِّلت كمياتها`, actorName());
+    }
+    return moves.length;
+  };
+
+  // فاتورة شراء من شركة: تُدخل المخزون كتشغيلات (مع البونص) وتسجّل الدين
+  const handleAddPurchase = (inv: PurchaseInvoice) => {
+    let working = [...medicines];
+    const moves: StockMovement[] = [];
+    const net = inv.subtotal > 0 ? inv.total / inv.subtotal : 1; // نسبة الخصم على سعر الوحدة
+    for (const line of inv.lines) {
+      const idx = working.findIndex(m => m.id === line.medicineId);
+      if (idx < 0) continue;
+      const totalPacks = line.quantity + (line.bonusQuantity || 0);
+      if (totalPacks <= 0) continue;
+      // التكلفة الفعلية للعبوة = قيمة السطر بعد الخصم ÷ (المشتري + البونص)
+      const effectiveCost = round2((line.lineTotal * net) / totalPacks);
+      const before = working[idx];
+      working[idx] = receiveBatch(before, {
+        batchNumber: line.batchNumber,
+        expiryDate: line.expiryDate,
+        quantity: totalPacks,
+        unitCost: effectiveCost,
+        receivedAt: inv.date,
+        supplierId: inv.supplierId,
+      });
+      moves.push(
+        makeMovement({ med: before, type: 'purchase', packsDelta: line.quantity, batchNumber: line.batchNumber, reference: inv.number, note: `شراء من ${inv.supplierName}`, actor: inv.recordedBy })
+      );
+      if (line.bonusQuantity > 0) {
+        moves.push(
+          makeMovement({ med: before, type: 'bonus', packsDelta: line.bonusQuantity, batchNumber: line.batchNumber, reference: inv.number, note: 'بونص', actor: inv.recordedBy })
+        );
+      }
+    }
+    setMedicines(working);
+    setMovements(prev => [...prev, ...moves]);
+    setPurchases(prev => [inv, ...prev]);
+    if (inv.remainingAmount > 0) {
+      handleAddTransaction(inv.supplierId, inv.remainingAmount, 'purchase', 'credit', `فاتورة شراء ${inv.number}${inv.supplierInvoiceNumber ? ' (فاتورة المورد ' + inv.supplierInvoiceNumber + ')' : ''}`, inv.number);
+    }
+    showToast(`تم تسجيل فاتورة الشراء ${inv.number} وإدخال الأصناف إلى المخزون`, 'success');
+  };
+
+  // الورديات
+  const handleOpenShift = (openingCash: number) => {
+    if (currentShift) return;
+    const sh: Shift = { id: uid('shift'), cashierName: actorName(), openedAt: new Date().toISOString(), openingCash: round2(openingCash) };
+    setShifts(prev => [sh, ...prev]);
+    showToast('تم فتح الوردية', 'success');
+  };
+
+  const shiftCashSales = (shiftId: string): number =>
+    round2(sales.filter(s => s.shiftId === shiftId).reduce((sum, s) => sum + (s.paymentMethod === 'cash' ? s.paidAmount : 0), 0));
+
+  const handleCloseShift = (counted: number, notes: string) => {
+    if (!currentShift) return;
+    const expected = round2(currentShift.openingCash + shiftCashSales(currentShift.id));
+    const closed: Shift = {
+      ...currentShift,
+      closedAt: new Date().toISOString(),
+      countedCash: round2(counted),
+      expectedCash: expected,
+      difference: round2(counted - expected),
+      notes,
+    };
+    setShifts(prev => prev.map(sh => (sh.id === closed.id ? closed : sh)));
+    AuditService.log('إغلاق وردية', `المتوقع ${expected}، المعدود ${closed.countedCash}، الفرق ${closed.difference}`, actorName());
+    showToast(`تم إغلاق الوردية. الفرق: ${closed.difference}`, closed.difference === 0 ? 'success' : 'info');
   };
 
   // Expenses handlers
   const handleAddExpense = (newExp: Omit<Expense, 'id'>) => {
     const exp: Expense = {
       ...newExp,
-      id: `exp-${Date.now()}`,
+      id: uid('exp'),
     };
     setExpenses(prev => [exp, ...prev]);
   };
@@ -490,6 +755,7 @@ export default function App() {
     link.download = `نسخة_فارما_برو_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
+    AppStorage.markBackupDone();
   };
 
   const handleImportBackup = (jsonString: string): boolean => {
@@ -501,6 +767,10 @@ export default function App() {
       setTransactions(AppStorage.getTransactions());
       setExpenses(AppStorage.getExpenses());
       setSettings(AppStorage.getSettings());
+      setPurchases(AppStorage.getPurchases());
+      setMovements(AppStorage.getMovements());
+      setShifts(AppStorage.getShifts());
+      AuditService.log('استعادة نسخة احتياطية', 'استُبدلت البيانات الحالية بنسخة احتياطية', actorName());
     }
     return ok;
   };
@@ -513,6 +783,23 @@ export default function App() {
     setTransactions(AppStorage.getTransactions());
     setExpenses(AppStorage.getExpenses());
     setSettings(AppStorage.getSettings());
+    setPurchases(AppStorage.getPurchases());
+    setMovements(AppStorage.getMovements());
+    setShifts(AppStorage.getShifts());
+    AuditService.log('مسح بيانات الصيدلية', 'تم مسح كل البيانات', actorName());
+  };
+
+  const handleLoadDemo = () => {
+    AppStorage.loadDemoData();
+    setEntities(AppStorage.getEntities());
+    setMedicines(AppStorage.getMedicines());
+    setSales(AppStorage.getSales());
+    setTransactions(AppStorage.getTransactions());
+    setExpenses(AppStorage.getExpenses());
+    setPurchases([]);
+    setMovements([]);
+    setShifts([]);
+    AuditService.log('تحميل بيانات تجريبية', 'استُبدلت البيانات الحالية ببيانات تجريبية', actorName());
   };
 
   // Open entity ledger from anywhere
@@ -540,13 +827,14 @@ export default function App() {
     transactions: FinancialTransaction[];
     expenses: Expense[];
   }) => {
+    const normalized = normalizeMedicines(data.medicines);
     setEntities(data.entities);
-    setMedicines(data.medicines);
+    setMedicines(normalized);
     setSales(data.sales);
     setTransactions(data.transactions);
     setExpenses(data.expenses);
     AppStorage.saveEntities(data.entities);
-    AppStorage.saveMedicines(data.medicines);
+    AppStorage.saveMedicines(normalized);
     AppStorage.saveSales(data.sales);
     AppStorage.saveTransactions(data.transactions);
     AppStorage.saveExpenses(data.expenses);
@@ -601,18 +889,22 @@ export default function App() {
         onOpenSuperAdminDirectly={handleOpenSuperAdmin}
       />
 
+      <Suspense fallback={null}>
       {/* About Engineer Malik Hraibat Modal */}
-      <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} />
+      {showAboutModal && <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} />}
 
       {/* Theme Selector Modal */}
+      {showThemeModal && (
       <ThemeSelectorModal
         isOpen={showThemeModal}
         onClose={() => setShowThemeModal(false)}
         currentThemeId={currentThemeId}
         onSelectTheme={handleSelectTheme}
       />
+      )}
 
       {/* Cross-Device Real-Time Sync & QR Pairing Modal */}
+      {showDeviceSyncModal && (
       <DeviceSyncModal
         isOpen={showDeviceSyncModal}
         onClose={() => setShowDeviceSyncModal(false)}
@@ -628,8 +920,10 @@ export default function App() {
           setShowSupabaseModal(true);
         }}
       />
+      )}
 
       {/* Supabase Cloud Connection Modal */}
+      {showSupabaseModal && (
       <SupabaseSyncModal
         isOpen={showSupabaseModal}
         onClose={() => setShowSupabaseModal(false)}
@@ -641,8 +935,10 @@ export default function App() {
         settings={settings}
         onApplyImportedData={handleApplyImportedData}
       />
+      )}
 
       {/* Pharmacy Workspaces & Data Isolation Manager Modal */}
+      {showInstanceManagerModal && (
       <PharmacyInstanceManagerModal
         isOpen={showInstanceManagerModal}
         onClose={() => setShowInstanceManagerModal(false)}
@@ -650,6 +946,9 @@ export default function App() {
         currentSettings={settings}
         currentRole={currentRole}
       />
+      )}
+
+      </Suspense>
 
       {/* Instance Login Modal for protected pharmacy copies */}
       {!isInstanceUnlocked && (
@@ -732,6 +1031,7 @@ export default function App() {
 
         {/* Dynamic View Panel */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 pb-20 md:pb-8">
+          <Suspense fallback={<div role="status" className="p-10 text-center text-sm font-bold text-slate-600">جاري التحميل...</div>}>
           {currentTab === 'dashboard' && (
             <DashboardView
               entities={entities}
@@ -776,7 +1076,7 @@ export default function App() {
                 const newBalance = dir === 'debit' ? entity.currentBalance + amt : entity.currentBalance - amt;
                 const dateFormatted = customDate || new Date().toISOString().replace('T', ' ').slice(0, 16);
                 const newTx: FinancialTransaction = {
-                  id: `tx-${Date.now()}`,
+                  id: uid('tx'),
                   entityId: entId,
                   entityName: entity.name,
                   date: dateFormatted,
@@ -784,9 +1084,9 @@ export default function App() {
                   type,
                   direction: dir,
                   balanceAfter: newBalance,
-                  referenceNumber: ref || `REF-${Math.floor(1000 + Math.random() * 9000)}`,
+                  referenceNumber: ref || uid('REF').toUpperCase().slice(0, 14),
                   note,
-                  recordedBy: currentRole === 'admin' ? 'م. مالك حريبات' : 'صيدلي مناوب',
+                  recordedBy: (currentRole === 'pharmacist' || currentRole === 'accountant' ? 'صيدلي مناوب' : (settings.ownerName || 'المدير')),
                 };
                 setTransactions(prev => [newTx, ...prev]);
                 setEntities(prev => prev.map(e => (e.id === entId ? { ...e, currentBalance: newBalance } : e)));
@@ -805,6 +1105,10 @@ export default function App() {
               settings={settings}
               currentRole={currentRole}
               onCompleteSale={handleCompleteSale}
+              sales={sales}
+              currentShift={currentShift}
+              onOpenShift={handleOpenShift}
+              onCloseShift={handleCloseShift}
             />
           )}
 
@@ -817,6 +1121,22 @@ export default function App() {
               onUpdateMedicine={handleUpdateMedicine}
               onDeleteMedicine={handleDeleteMedicine}
               onBulkImportMedicines={handleBulkImportMedicines}
+              movements={movements}
+              entities={entities}
+              sales={sales}
+              onRemoveStock={handleRemoveStock}
+              onStocktake={handleStocktake}
+            />
+          )}
+
+          {currentTab === 'purchases' && (
+            <PurchasesView
+              medicines={medicines}
+              entities={entities}
+              purchases={purchases}
+              settings={settings}
+              currentRole={currentRole}
+              onAddPurchase={handleAddPurchase}
             />
           )}
 
@@ -838,6 +1158,7 @@ export default function App() {
               entities={entities}
               settings={settings}
               currentRole={currentRole}
+              shifts={shifts}
             />
           )}
 
@@ -851,6 +1172,7 @@ export default function App() {
               onExportBackup={handleExportBackup}
               onImportBackup={handleImportBackup}
               onResetData={handleResetData}
+              onLoadDemo={handleLoadDemo}
               onOpenAbout={() => setShowAboutModal(true)}
               onNavigateToSuperAdmin={handleOpenSuperAdmin}
               onOpenSupabaseSync={() => setShowSupabaseModal(true)}
@@ -878,6 +1200,7 @@ export default function App() {
               onOpenSupabaseSync={() => setShowSupabaseModal(true)}
             />
           )}
+          </Suspense>
         </main>
       </div>
 

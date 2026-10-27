@@ -44,7 +44,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDismiss, autoClose
           <div className="relative w-28 h-28 rounded-3xl bg-gradient-to-br from-cyan-600 to-blue-700 p-0.5 shadow-2xl flex items-center justify-center border border-white/20">
             <div className="w-full h-full rounded-[22px] bg-slate-950/40 backdrop-blur-md flex flex-col items-center justify-center gap-1">
               <Pill className="w-12 h-12 text-cyan-300 drop-shadow-[0_0_12px_rgba(6,182,212,0.6)]" />
-              <span className="text-[10px] tracking-widest text-cyan-200 font-bold uppercase">PHARMA PRO</span>
+              <span className="text-xs tracking-widest text-cyan-200 font-bold uppercase">PHARMA PRO</span>
             </div>
           </div>
         </div>

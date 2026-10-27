@@ -28,7 +28,8 @@ import {
 import { AppSettings, UserRole } from '../types';
 import { ThemeId, AVAILABLE_THEMES, ThemeService } from '../services/themeService';
 import { CryptoService } from '../services/cryptoService';
-import { AppStorage } from '../services/storage';
+import { AppStorage, flushStorage } from '../services/storage';
+import { SystemInfoPanel } from '../components/SystemInfoPanel';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -39,6 +40,7 @@ interface SettingsViewProps {
   onExportBackup: () => void;
   onImportBackup: (jsonString: string) => boolean;
   onResetData: () => void;
+  onLoadDemo?: () => void;
   onOpenAbout: () => void;
   onNavigateToSuperAdmin?: () => void;
   onOpenSupabaseSync?: () => void;
@@ -56,6 +58,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onExportBackup,
   onImportBackup,
   onResetData,
+  onLoadDemo,
   onOpenAbout,
   onNavigateToSuperAdmin,
   onOpenSupabaseSync,
@@ -69,6 +72,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [currency, setCurrency] = useState(settings.currency);
   const [pincode, setPincode] = useState(settings.pincode || '');
   const [isPinRequired, setIsPinRequired] = useState(settings.isPinRequired);
+  const [licenseNumber, setLicenseNumber] = useState(settings.pharmacyLicenseNumber || '');
+  const [taxNumber, setTaxNumber] = useState(settings.taxNumber || '');
+  const [maxDiscount, setMaxDiscount] = useState(String(settings.maxDiscountPercent ?? 10));
+  const [nearDays, setNearDays] = useState(String(settings.nearExpiryDays ?? 90));
+  const [receiptFooter, setReceiptFooter] = useState(settings.receiptFooter || '');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isContrastBoost, setIsContrastBoost] = useState<boolean>(() => ThemeService.isContrastBoost());
 
@@ -78,29 +86,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     ThemeService.setContrastBoost(next);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateSettings({
+    const next: AppSettings = {
       ...settings,
       pharmacyName: pharmacyName.trim(),
       phone: phone.trim(),
       address: address.trim(),
       currency: currency.trim(),
-      pincode: (pincode || '').trim(),
       isPinRequired,
-    });
+      pharmacyLicenseNumber: licenseNumber.trim(),
+      taxNumber: taxNumber.trim(),
+      maxDiscountPercent: Math.min(100, Math.max(0, parseFloat(maxDiscount) || 0)),
+      nearExpiryDays: Math.min(365, Math.max(7, parseInt(nearDays) || 90)),
+      receiptFooter: receiptFooter.trim(),
+    };
+    const newPin = (pincode || '').trim();
+    if (newPin) {
+      if (!/^\d{4,8}$/.test(newPin)) {
+        alert('رمز الـ PIN يجب أن يتكون من 4 إلى 8 أرقام فقط.');
+        return;
+      }
+      // لا يُحفظ الـ PIN كنص صريح أبداً، بل كتجزئة مع Salt
+      const h = await CryptoService.hashSecret(newPin);
+      next.pincodeHash = h.hash;
+      next.pincodeSalt = h.salt;
+      next.pincode = '';
+      setPincode('');
+    }
+    onUpdateSettings(next);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
   };
 
   const handleExportEncrypted = async () => {
-    const password = prompt(
-      'أدخل كلمة مرور لتشفير ملف النسخة الاحتياطية (أو اضغط موافق لتشفيره بالمفتاح المحلي):'
-    );
+    const password = prompt('أدخل كلمة مرور لتشفير ملف النسخة الاحتياطية (6 أحرف على الأقل). احفظها جيداً، لا يمكن استعادة الملف بدونها:');
     if (password === null) return;
+    if (password.length < 6) {
+      alert('كلمة المرور قصيرة. يجب أن تكون 6 أحرف على الأقل.');
+      return;
+    }
     try {
       const raw = AppStorage.exportFullBackup();
-      const enc = await CryptoService.exportEncryptedBackup(raw, password || undefined);
+      const enc = await CryptoService.exportEncryptedBackup(raw, password);
       const blob = new Blob([enc], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -108,6 +136,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       link.download = `نسخة_مشفرة_فارما_برو_${new Date().toISOString().split('T')[0]}.json`;
       link.click();
       URL.revokeObjectURL(url);
+      AppStorage.markBackupDone();
       alert('تم تصدير النسخة الاحتياطية المشفرة بنجاح 🔒');
     } catch (e) {
       alert('فشل تصدير النسخة المشفرة.');
@@ -140,6 +169,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           const success = onImportBackup(payloadToImport);
           if (success) {
             alert('تم استعادة وفك تشفير النسخة الاحتياطية بنجاح!');
+            await flushStorage();
             window.location.reload();
           } else {
             alert('حدث خطأ في قراءة ملف النسخة الاحتياطية.');
@@ -193,7 +223,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div>
               <div className="text-xs font-black text-slate-900 flex items-center gap-2">
                 <span>تعزيز سواد وسماكة الخطوط (Font Contrast Boost)</span>
-                <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.2 rounded-full font-bold">
+                <span className="text-xs bg-amber-200 text-amber-900 px-2 py-0.2 rounded-full font-bold">
                   حل فوري لعدم وضوح النصوص
                 </span>
               </div>
@@ -245,7 +275,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 {theme.isHighContrast && (
-                  <span className="text-[9px] bg-slate-900 text-white font-black px-1.5 py-0.2 rounded w-fit">
+                  <span className="text-[11px] bg-slate-900 text-white font-black px-1.5 py-0.2 rounded w-fit">
                     🔍 وضوح فائق
                   </span>
                 )}
@@ -261,7 +291,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 w-full text-[10px]">
+                <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 w-full text-xs">
                   <span className={isSelected ? 'font-black text-slate-950' : 'text-slate-500'}>
                     {isSelected ? '✓ نشط حالياً' : 'تفعيل'}
                   </span>
@@ -282,7 +312,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-teal-800/60 pb-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider bg-teal-500/20 text-teal-300 px-2.5 py-0.5 rounded-full border border-teal-500/30">
+              <span className="text-xs font-black uppercase tracking-wider bg-teal-500/20 text-teal-300 px-2.5 py-0.5 rounded-full border border-teal-500/30">
                 عزل تام للبيانات 100%
               </span>
               <span className="text-xs font-bold text-teal-400 flex items-center gap-1">
@@ -347,7 +377,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-indigo-800/60 pb-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
+              <span className="text-xs font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
                 ميزة مطلوبة ومدمجة بالكامل
               </span>
               <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
@@ -472,6 +502,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-900"
                 />
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">رقم ترخيص الصيدلية (يظهر على الإيصال)</label>
+                  <input type="text" value={licenseNumber} onChange={e => setLicenseNumber(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-slate-900" />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">الرقم الضريبي</label>
+                  <input type="text" value={taxNumber} onChange={e => setTaxNumber(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-slate-900" />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">أقصى خصم للصيدلي/الكاشير (%)</label>
+                  <input type="number" min={0} max={100} step="0.5" value={maxDiscount} onChange={e => setMaxDiscount(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-slate-900" />
+                  <span className="text-xs text-slate-600">المدير بلا حد. يمنع البيع بأقل من التكلفة للصيدلي.</span>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">اعتبار الدواء «قريب الانتهاء» قبل (يوم)</label>
+                  <input type="number" min={7} max={365} value={nearDays} onChange={e => setNearDays(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-slate-900" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">سطر ختامي على الإيصال (اختياري)</label>
+                <input type="text" value={receiptFooter} onChange={e => setReceiptFooter(e.target.value)} placeholder="مثال: نتمنى لكم الشفاء العاجل" className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-900" />
+              </div>
             </div>
 
             {/* Security PIN code */}
@@ -484,17 +538,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">
-                    رمز القفل السري (4 أرقام)
+                    رمز القفل السري (من 4 إلى 8 أرقام)
                   </label>
                   <input
                     type="password"
-                    maxLength={4}
+                    inputMode="numeric"
+                    maxLength={8}
+                    autoComplete="new-password"
+                    placeholder="••••"
                     value={pincode}
-                    onChange={e => setPincode(e.target.value)}
+                    onChange={e => setPincode(e.target.value.replace(/\D/g, ''))}
                     className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-center tracking-widest text-lg font-bold"
                   />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    الرمز الافتراضي: 1234
+                  <span className="text-xs text-slate-500 mt-0.5 block">
+                    اتركه فارغاً للإبقاء على الرمز الحالي. اكتب رمزاً جديداً لتغييره.
                   </span>
                 </div>
 
@@ -569,21 +626,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 />
               </label>
 
+              {/* Load demo data */}
+              {onLoadDemo && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('سيتم استبدال بياناتك الحالية ببيانات تجريبية للتعلم والتجربة. هل أخذت نسخة احتياطية؟ هل تريد المتابعة؟')) {
+                      onLoadDemo();
+                    }
+                  }}
+                  className="p-4 rounded-2xl bg-sky-50 hover:bg-sky-100 border border-sky-300 text-sky-950 font-bold transition-all flex flex-col items-center gap-2 text-center"
+                >
+                  <RefreshCw className="w-6 h-6 text-sky-700" />
+                  <span>تجربة ببيانات تجريبية</span>
+                </button>
+              )}
+
               {/* Reset */}
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm('هل أنت متأكد من إعادة ضبط البيانات إلى النماذج الافتراضية؟')) {
+                  const typed = prompt('تحذير: سيتم مسح كل بيانات الصيدلية (الأدوية والمبيعات والحسابات). خذ نسخة احتياطية أولاً.\nللتأكيد اكتب كلمة: مسح');
+                  if (typed && typed.trim() === 'مسح') {
                     onResetData();
                   }
                 }}
-                className="p-4 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 font-bold transition-all flex flex-col items-center gap-2 text-center"
+                className="p-4 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-900 font-bold transition-all flex flex-col items-center gap-2 text-center"
               >
-                <RefreshCw className="w-6 h-6 text-rose-600" />
-                <span>إعادة ضبط البيانات الأولية</span>
+                <RefreshCw className="w-6 h-6 text-rose-700" />
+                <span>مسح كل بيانات الصيدلية</span>
               </button>
             </div>
           </div>
+
+          <SystemInfoPanel />
 
           {/* Excel Batch Import Card */}
           <div className="bg-gradient-to-r from-emerald-700 via-teal-800 to-cyan-900 rounded-3xl p-6 text-white shadow-lg space-y-3">
@@ -730,7 +806,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <Award className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[10px] text-cyan-300 font-bold block uppercase">
+                <span className="text-xs text-cyan-300 font-bold block uppercase">
                   المطور والمهندس المعتمد
                 </span>
                 <h4 className="text-base font-black">{settings.designerName}</h4>

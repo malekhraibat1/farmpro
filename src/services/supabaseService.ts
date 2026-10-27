@@ -91,13 +91,15 @@ export function cleanAndValidateSupabaseUrl(rawUrl: string): {
 }
 
 export const SUPABASE_SQL_SCHEMA = `-- ========================================================
--- كود إنشاء جداول نظام فارما برو على Supabase
--- تصميم المهندس مالك حريبات | 0594345464
+-- فارما برو - مخطط قاعدة البيانات الآمن (الإصدار 2)
+-- كل صيدلية = حساب Supabase خاص بها، ولا ترى بيانات غيرها (Row Level Security)
+-- شغّل هذا السكربت كاملاً مرة واحدة في SQL Editor
 -- ========================================================
 
--- 1. جدول الكيانات والحسابات (صيدليات أخرى، شركات أدوية، عملاء)
+-- 1. الكيانات والحسابات
 CREATE TABLE IF NOT EXISTS entities (
-  id TEXT PRIMARY KEY,
+  owner_id UUID NOT NULL DEFAULT auth.uid(),
+  id TEXT NOT NULL,
   name TEXT NOT NULL,
   type TEXT NOT NULL,
   phone TEXT,
@@ -106,13 +108,15 @@ CREATE TABLE IF NOT EXISTS entities (
   current_balance NUMERIC(12, 2) DEFAULT 0.00,
   credit_limit NUMERIC(12, 2) DEFAULT 0.00,
   notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (owner_id, id)
 );
 
--- 2. جدول الأدوية والمخزون
+-- 2. الأدوية والمخزون
 CREATE TABLE IF NOT EXISTS medicines (
-  id TEXT PRIMARY KEY,
-  barcode TEXT NOT NULL UNIQUE,
+  owner_id UUID NOT NULL DEFAULT auth.uid(),
+  id TEXT NOT NULL,
+  barcode TEXT NOT NULL,
   trade_name TEXT NOT NULL,
   generic_name TEXT,
   category TEXT,
@@ -124,15 +128,28 @@ CREATE TABLE IF NOT EXISTS medicines (
   batch_number TEXT,
   expiry_date DATE NOT NULL,
   manufacturer TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  batches JSONB NOT NULL DEFAULT '[]'::jsonb,
+  dosage_form TEXT,
+  strength TEXT,
+  requires_prescription BOOLEAN DEFAULT FALSE,
+  is_controlled BOOLEAN DEFAULT FALSE,
+  units_per_pack INTEGER DEFAULT 1,
+  sub_unit_name TEXT,
+  sub_unit_price NUMERIC(12, 2),
+  loose_units INTEGER DEFAULT 0,
+  min_sell_price NUMERIC(12, 2),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (owner_id, id),
+  UNIQUE (owner_id, barcode)
 );
 
--- 3. جدول فواتير المبيعات
+-- 3. فواتير المبيعات
 CREATE TABLE IF NOT EXISTS sales (
-  id TEXT PRIMARY KEY,
-  invoice_number TEXT NOT NULL UNIQUE,
+  owner_id UUID NOT NULL DEFAULT auth.uid(),
+  id TEXT NOT NULL,
+  invoice_number TEXT NOT NULL,
   date TEXT NOT NULL,
-  entity_id TEXT REFERENCES entities(id) ON DELETE SET NULL,
+  entity_id TEXT,
   entity_name TEXT,
   items JSONB NOT NULL DEFAULT '[]'::jsonb,
   total_amount NUMERIC(12, 2) NOT NULL,
@@ -145,13 +162,19 @@ CREATE TABLE IF NOT EXISTS sales (
   payment_status TEXT NOT NULL,
   cashier_name TEXT,
   notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  prescription JSONB,
+  shift_id TEXT,
+  change_given NUMERIC(12, 2) DEFAULT 0.00,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (owner_id, id),
+  UNIQUE (owner_id, invoice_number)
 );
 
--- 4. جدول الحركات المالية ودفتر القيود
+-- 4. الحركات المالية ودفتر القيود
 CREATE TABLE IF NOT EXISTS financial_transactions (
-  id TEXT PRIMARY KEY,
-  entity_id TEXT REFERENCES entities(id) ON DELETE CASCADE,
+  owner_id UUID NOT NULL DEFAULT auth.uid(),
+  id TEXT NOT NULL,
+  entity_id TEXT,
   entity_name TEXT,
   date TEXT NOT NULL,
   amount NUMERIC(12, 2) NOT NULL,
@@ -161,24 +184,28 @@ CREATE TABLE IF NOT EXISTS financial_transactions (
   reference_number TEXT,
   note TEXT,
   recorded_by TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (owner_id, id)
 );
 
--- 5. جدول المصاريف التشغيلية
+-- 5. المصاريف التشغيلية
 CREATE TABLE IF NOT EXISTS expenses (
-  id TEXT PRIMARY KEY,
+  owner_id UUID NOT NULL DEFAULT auth.uid(),
+  id TEXT NOT NULL,
   title TEXT NOT NULL,
   category TEXT NOT NULL,
   amount NUMERIC(12, 2) NOT NULL,
   date TEXT NOT NULL,
   notes TEXT,
   recorded_by TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (owner_id, id)
 );
 
--- 6. جدول إعدادات الصيدلية والترخيص
+-- 6. إعدادات الصيدلية
 CREATE TABLE IF NOT EXISTS pharmacy_settings (
-  id TEXT PRIMARY KEY DEFAULT 'main_config',
+  owner_id UUID NOT NULL DEFAULT auth.uid(),
+  id TEXT NOT NULL DEFAULT 'main_config',
   pharmacy_name TEXT NOT NULL,
   owner_name TEXT,
   phone TEXT,
@@ -186,106 +213,116 @@ CREATE TABLE IF NOT EXISTS pharmacy_settings (
   currency TEXT DEFAULT '₪',
   tax_rate NUMERIC(5, 2) DEFAULT 0.00,
   settings_json JSONB NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (owner_id, id)
 );
 
--- 7. حل مشكلة الصلاحيات: تعطيل قيود RLS ومنح الصلاحيات للمزامنة الحرة
-ALTER TABLE IF EXISTS entities DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS medicines DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS sales DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS financial_transactions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS expenses DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS pharmacy_settings DISABLE ROW LEVEL SECURITY;
+-- 7. الأمان: تفعيل RLS ومنع المستخدم المجهول (anon) تماماً
+ALTER TABLE entities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE medicines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE financial_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_settings ENABLE ROW LEVEL SECURITY;
 
-GRANT ALL ON TABLE entities TO anon, authenticated, service_role;
-GRANT ALL ON TABLE medicines TO anon, authenticated, service_role;
-GRANT ALL ON TABLE sales TO anon, authenticated, service_role;
-GRANT ALL ON TABLE financial_transactions TO anon, authenticated, service_role;
-GRANT ALL ON TABLE expenses TO anon, authenticated, service_role;
-GRANT ALL ON TABLE pharmacy_settings TO anon, authenticated, service_role;
+REVOKE ALL ON TABLE entities, medicines, sales, financial_transactions, expenses, pharmacy_settings FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE entities, medicines, sales, financial_transactions, expenses, pharmacy_settings TO authenticated;
 
--- سياسات وصول مفتوحة للمفتاح العام anon والتوثيق
-DO $$ 
-BEGIN
-  BEGIN
-    CREATE POLICY "Allow anon all on entities" ON entities FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    CREATE POLICY "Allow anon all on medicines" ON medicines FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    CREATE POLICY "Allow anon all on sales" ON sales FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    CREATE POLICY "Allow anon all on financial_transactions" ON financial_transactions FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    CREATE POLICY "Allow anon all on expenses" ON expenses FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    CREATE POLICY "Allow anon all on pharmacy_settings" ON pharmacy_settings FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-END $$;
+-- 8. سياسات: كل مستخدم يرى ويعدّل صفوفه فقط
+DROP POLICY IF EXISTS "owner_all" ON entities;
+DROP POLICY IF EXISTS "owner_all" ON medicines;
+DROP POLICY IF EXISTS "owner_all" ON sales;
+DROP POLICY IF EXISTS "owner_all" ON financial_transactions;
+DROP POLICY IF EXISTS "owner_all" ON expenses;
+DROP POLICY IF EXISTS "owner_all" ON pharmacy_settings;
 
--- تفعيل ميزة التزامن المباشر (Realtime)
-ALTER PUBLICATION supabase_realtime ADD TABLE entities, medicines, sales, financial_transactions, expenses;
+CREATE POLICY "owner_all" ON entities FOR ALL TO authenticated USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
+CREATE POLICY "owner_all" ON medicines FOR ALL TO authenticated USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
+CREATE POLICY "owner_all" ON sales FOR ALL TO authenticated USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
+CREATE POLICY "owner_all" ON financial_transactions FOR ALL TO authenticated USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
+CREATE POLICY "owner_all" ON expenses FOR ALL TO authenticated USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
+CREATE POLICY "owner_all" ON pharmacy_settings FOR ALL TO authenticated USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
+
+-- 9. فهارس للأداء
+CREATE INDEX IF NOT EXISTS idx_sales_owner_created ON sales (owner_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_medicines_owner_expiry ON medicines (owner_id, expiry_date);
+CREATE INDEX IF NOT EXISTS idx_tx_owner_entity ON financial_transactions (owner_id, entity_id);
 `;
 
-export const SUPABASE_RLS_FIX_SQL = `-- ========================================================
--- كود حل مشكلة الصلاحيات (Row-Level Security RLS) في Supabase
--- تشغيله يحل فوراً خطأ: new row violates row-level security policy
--- ========================================================
-
--- 1. تعطيل قيود RLS على جميع جداول الصيدلية
-ALTER TABLE IF EXISTS entities DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS medicines DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS sales DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS financial_transactions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS expenses DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS pharmacy_settings DISABLE ROW LEVEL SECURITY;
-
--- 2. منح الصلاحيات للمفتاح العام anon والمصرح لهم
-GRANT ALL ON TABLE entities TO anon, authenticated, service_role;
-GRANT ALL ON TABLE medicines TO anon, authenticated, service_role;
-GRANT ALL ON TABLE sales TO anon, authenticated, service_role;
-GRANT ALL ON TABLE financial_transactions TO anon, authenticated, service_role;
-GRANT ALL ON TABLE expenses TO anon, authenticated, service_role;
-GRANT ALL ON TABLE pharmacy_settings TO anon, authenticated, service_role;
-
--- 3. سياسات وصول مفتوحة إضافية
-DO $$ 
+/**
+ * ترحيل من المخطط القديم (الجداول بدون owner_id وبسياسات مفتوحة).
+ * مهم: خذ نسخة احتياطية أولاً. استبدل YOUR-USER-UUID بمعرّف حسابك من Authentication > Users.
+ * يُشغَّل مرة واحدة، ثم شغّل سكربت المخطط الآمن (الإصدار 2) لتفعيل RLS والسياسات.
+ */
+export const SUPABASE_MIGRATION_SQL = `-- ترحيل المخطط القديم إلى النموذج الآمن
+-- 1) أضف عمود المالك واملأه بمعرّف حسابك
+DO $$
+DECLARE t TEXT;
 BEGIN
-  BEGIN
-    CREATE POLICY "Allow anon all on entities" ON entities FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    CREATE POLICY "Allow anon all on medicines" ON medicines FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    CREATE POLICY "Allow anon all on sales" ON sales FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    CREATE POLICY "Allow anon all on financial_transactions" ON financial_transactions FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    CREATE POLICY "Allow anon all on expenses" ON expenses FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
-  BEGIN
-    CREATE POLICY "Allow anon all on pharmacy_settings" ON pharmacy_settings FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  EXCEPTION WHEN others THEN NULL;
-  END;
+  FOREACH t IN ARRAY ARRAY['entities','medicines','sales','financial_transactions','expenses','pharmacy_settings'] LOOP
+    EXECUTE format('ALTER TABLE %I ADD COLUMN IF NOT EXISTS owner_id UUID', t);
+    EXECUTE format('UPDATE %I SET owner_id = %L WHERE owner_id IS NULL', t, 'YOUR-USER-UUID');
+    EXECUTE format('ALTER TABLE %I ALTER COLUMN owner_id SET NOT NULL', t);
+    EXECUTE format('ALTER TABLE %I ALTER COLUMN owner_id SET DEFAULT auth.uid()', t);
+  END LOOP;
 END $$;
+
+-- 1.5) أعمدة الميزات الجديدة (تشغيلات، وحدات صغرى، وصفات...)
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS batches JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS dosage_form TEXT;
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS strength TEXT;
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS requires_prescription BOOLEAN DEFAULT FALSE;
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS is_controlled BOOLEAN DEFAULT FALSE;
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS units_per_pack INTEGER DEFAULT 1;
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS sub_unit_name TEXT;
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS sub_unit_price NUMERIC(12, 2);
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS loose_units INTEGER DEFAULT 0;
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS min_sell_price NUMERIC(12, 2);
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS prescription JSONB;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS shift_id TEXT;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS change_given NUMERIC(12, 2) DEFAULT 0.00;
+
+-- 2) استبدل المفاتيح الأساسية والفريدة بمفاتيح تشمل المالك
+ALTER TABLE sales DROP CONSTRAINT IF EXISTS sales_entity_id_fkey;
+ALTER TABLE financial_transactions DROP CONSTRAINT IF EXISTS financial_transactions_entity_id_fkey;
+ALTER TABLE entities DROP CONSTRAINT IF EXISTS entities_pkey;
+ALTER TABLE medicines DROP CONSTRAINT IF EXISTS medicines_pkey;
+ALTER TABLE medicines DROP CONSTRAINT IF EXISTS medicines_barcode_key;
+ALTER TABLE sales DROP CONSTRAINT IF EXISTS sales_pkey;
+ALTER TABLE sales DROP CONSTRAINT IF EXISTS sales_invoice_number_key;
+ALTER TABLE financial_transactions DROP CONSTRAINT IF EXISTS financial_transactions_pkey;
+ALTER TABLE expenses DROP CONSTRAINT IF EXISTS expenses_pkey;
+ALTER TABLE pharmacy_settings DROP CONSTRAINT IF EXISTS pharmacy_settings_pkey;
+
+ALTER TABLE entities ADD PRIMARY KEY (owner_id, id);
+ALTER TABLE medicines ADD PRIMARY KEY (owner_id, id);
+ALTER TABLE medicines ADD UNIQUE (owner_id, barcode);
+ALTER TABLE sales ADD PRIMARY KEY (owner_id, id);
+ALTER TABLE sales ADD UNIQUE (owner_id, invoice_number);
+ALTER TABLE financial_transactions ADD PRIMARY KEY (owner_id, id);
+ALTER TABLE expenses ADD PRIMARY KEY (owner_id, id);
+ALTER TABLE pharmacy_settings ADD PRIMARY KEY (owner_id, id);
+
+-- 3) احذف السياسات المفتوحة القديمة
+DROP POLICY IF EXISTS "Allow anon all on entities" ON entities;
+DROP POLICY IF EXISTS "Allow anon all on medicines" ON medicines;
+DROP POLICY IF EXISTS "Allow anon all on sales" ON sales;
+DROP POLICY IF EXISTS "Allow anon all on financial_transactions" ON financial_transactions;
+DROP POLICY IF EXISTS "Allow anon all on expenses" ON expenses;
+DROP POLICY IF EXISTS "Allow anon all on pharmacy_settings" ON pharmacy_settings;
+-- ثم شغّل سكربت المخطط الآمن (الإصدار 2) لتفعيل RLS والسياسات الجديدة.
+`;
+
+/** سكربت إصلاح خطأ RLS (آمن): يعيد ضبط السياسات الصحيحة، ولا يفتح الجداول للعامة */
+export const SUPABASE_RLS_FIX_SQL = `-- إصلاح خطأ "new row violates row-level security policy"
+-- السبب الشائع: لم تسجّل الدخول بحساب Supabase داخل البرنامج، أو الجداول بالمخطط القديم.
+-- 1) سجّل الدخول من نافذة الربط السحابي أولاً.
+-- 2) إن استمر الخطأ: شغّل سكربت المخطط الآمن (الإصدار 2)، وإن كانت لديك جداول قديمة فشغّل الترحيل قبله.
+-- لا تعطّل RLS ولا تمنح anon صلاحيات: هذا يكشف بيانات صيدليتك لأي شخص على الإنترنت.
+
+SELECT tablename, rowsecurity FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN ('entities','medicines','sales','financial_transactions','expenses','pharmacy_settings');
 `;
 
 const inMemorySupabaseConfig: Record<string, string> = {};
@@ -500,6 +537,29 @@ export class SupabaseService {
   }
 
   // Push local data to Supabase
+  /** معرّف المستخدم المسجَّل دخوله في Supabase (null إن لم يسجّل الدخول) */
+  static async getOwnerId(): Promise<string | null> {
+    const client = this.getClient();
+    if (!client) return null;
+    try {
+      const { data } = await client.auth.getSession();
+      return data.session?.user?.id || null;
+    } catch {
+      return null;
+    }
+  }
+
+  static async getSessionEmail(): Promise<string | null> {
+    const client = this.getClient();
+    if (!client) return null;
+    try {
+      const { data } = await client.auth.getSession();
+      return data.session?.user?.email || null;
+    } catch {
+      return null;
+    }
+  }
+
   static async pushAllDataToSupabase(
     entities: Entity[],
     medicines: Medicine[],
@@ -512,11 +572,16 @@ export class SupabaseService {
     if (!client) {
       return { success: false, message: 'يرجى إدخال رابط ومفتاح Supabase أولاً.' };
     }
+    const ownerId = await this.getOwnerId();
+    if (!ownerId) {
+      return { success: false, message: 'سجّل الدخول بحساب Supabase أولاً (من نافذة الربط السحابي) ثم أعد المحاولة.' };
+    }
 
     try {
       // 1. Entities
       if (entities.length > 0) {
         const payloadEntities = entities.map(e => ({
+          owner_id: ownerId,
           id: e.id,
           name: e.name,
           type: e.type,
@@ -527,13 +592,14 @@ export class SupabaseService {
           credit_limit: e.creditLimit,
           notes: e.notes || null,
         }));
-        const { error: errEnt } = await client.from('entities').upsert(payloadEntities, { onConflict: 'id' });
+        const { error: errEnt } = await client.from('entities').upsert(payloadEntities, { onConflict: 'owner_id,id' });
         if (errEnt) throw new Error(`خطأ في رفع الكيانات: ${errEnt.message}`);
       }
 
       // 2. Medicines
       if (medicines.length > 0) {
         const payloadMeds = medicines.map(m => ({
+          owner_id: ownerId,
           id: m.id,
           barcode: m.barcode,
           trade_name: m.tradeName,
@@ -547,14 +613,25 @@ export class SupabaseService {
           batch_number: m.batchNumber,
           expiry_date: m.expiryDate,
           manufacturer: m.manufacturer || null,
+          batches: m.batches || [],
+          dosage_form: m.dosageForm || null,
+          strength: m.strength || null,
+          requires_prescription: !!m.requiresPrescription,
+          is_controlled: !!m.isControlled,
+          units_per_pack: m.unitsPerPack || 1,
+          sub_unit_name: m.subUnitName || null,
+          sub_unit_price: m.subUnitPrice || null,
+          loose_units: m.looseUnits || 0,
+          min_sell_price: m.minSellPrice || null,
         }));
-        const { error: errMed } = await client.from('medicines').upsert(payloadMeds, { onConflict: 'id' });
+        const { error: errMed } = await client.from('medicines').upsert(payloadMeds, { onConflict: 'owner_id,id' });
         if (errMed) throw new Error(`خطأ في رفع الأدوية: ${errMed.message}`);
       }
 
       // 3. Sales
       if (sales.length > 0) {
         const payloadSales = sales.map(s => ({
+          owner_id: ownerId,
           id: s.id,
           invoice_number: s.invoiceNumber,
           date: s.date,
@@ -571,14 +648,18 @@ export class SupabaseService {
           payment_status: s.paymentStatus,
           cashier_name: s.cashierName,
           notes: s.notes || null,
+          prescription: s.prescription || null,
+          shift_id: s.shiftId || null,
+          change_given: s.changeGiven || 0,
         }));
-        const { error: errSales } = await client.from('sales').upsert(payloadSales, { onConflict: 'id' });
+        const { error: errSales } = await client.from('sales').upsert(payloadSales, { onConflict: 'owner_id,id' });
         if (errSales) throw new Error(`خطأ في رفع الفواتير: ${errSales.message}`);
       }
 
       // 4. Transactions
       if (transactions.length > 0) {
         const payloadTx = transactions.map(t => ({
+          owner_id: ownerId,
           id: t.id,
           entity_id: t.entityId,
           entity_name: t.entityName,
@@ -591,13 +672,14 @@ export class SupabaseService {
           note: t.note || null,
           recorded_by: t.recordedBy,
         }));
-        const { error: errTx } = await client.from('financial_transactions').upsert(payloadTx, { onConflict: 'id' });
+        const { error: errTx } = await client.from('financial_transactions').upsert(payloadTx, { onConflict: 'owner_id,id' });
         if (errTx) throw new Error(`خطأ في رفع الحركات المالية: ${errTx.message}`);
       }
 
       // 5. Expenses
       if (expenses.length > 0) {
         const payloadExp = expenses.map(ex => ({
+          owner_id: ownerId,
           id: ex.id,
           title: ex.title,
           category: ex.category,
@@ -606,7 +688,7 @@ export class SupabaseService {
           notes: ex.notes || null,
           recorded_by: ex.recordedBy,
         }));
-        const { error: errExp } = await client.from('expenses').upsert(payloadExp, { onConflict: 'id' });
+        const { error: errExp } = await client.from('expenses').upsert(payloadExp, { onConflict: 'owner_id,id' });
         if (errExp) throw new Error(`خطأ في رفع المصاريف: ${errExp.message}`);
       }
 
@@ -649,21 +731,25 @@ export class SupabaseService {
     if (!client) {
       return { success: false, message: 'يرجى إدخال رابط ومفتاح Supabase أولاً.' };
     }
+    const ownerId = await this.getOwnerId();
+    if (!ownerId) {
+      return { success: false, message: 'سجّل الدخول بحساب Supabase أولاً (من نافذة الربط السحابي) ثم أعد المحاولة.' };
+    }
 
     try {
-      const { data: entData, error: entErr } = await client.from('entities').select('*');
+      const { data: entData, error: entErr } = await client.from('entities').select('*').eq('owner_id', ownerId);
       if (entErr) throw new Error(entErr.message);
 
-      const { data: medData, error: medErr } = await client.from('medicines').select('*');
+      const { data: medData, error: medErr } = await client.from('medicines').select('*').eq('owner_id', ownerId);
       if (medErr) throw new Error(medErr.message);
 
-      const { data: salesData, error: salesErr } = await client.from('sales').select('*');
+      const { data: salesData, error: salesErr } = await client.from('sales').select('*').eq('owner_id', ownerId);
       if (salesErr) throw new Error(salesErr.message);
 
-      const { data: txData, error: txErr } = await client.from('financial_transactions').select('*');
+      const { data: txData, error: txErr } = await client.from('financial_transactions').select('*').eq('owner_id', ownerId);
       if (txErr) throw new Error(txErr.message);
 
-      const { data: expData, error: expErr } = await client.from('expenses').select('*');
+      const { data: expData, error: expErr } = await client.from('expenses').select('*').eq('owner_id', ownerId);
       if (expErr) throw new Error(expErr.message);
 
       const mappedEntities: Entity[] = (entData || []).map((e: any) => ({
@@ -693,6 +779,16 @@ export class SupabaseService {
         batchNumber: m.batch_number || '',
         expiryDate: m.expiry_date || '2028-12-31',
         manufacturer: m.manufacturer || '',
+        batches: Array.isArray(m.batches) && m.batches.length ? m.batches : undefined,
+        dosageForm: m.dosage_form || undefined,
+        strength: m.strength || undefined,
+        requiresPrescription: !!m.requires_prescription,
+        isControlled: !!m.is_controlled,
+        unitsPerPack: m.units_per_pack || 1,
+        subUnitName: m.sub_unit_name || undefined,
+        subUnitPrice: m.sub_unit_price ? parseFloat(m.sub_unit_price) : undefined,
+        looseUnits: m.loose_units || 0,
+        minSellPrice: m.min_sell_price ? parseFloat(m.min_sell_price) : undefined,
       }));
 
       const mappedSales: SaleInvoice[] = (salesData || []).map((s: any) => ({
@@ -712,6 +808,9 @@ export class SupabaseService {
         paymentStatus: s.payment_status || 'paid',
         cashierName: s.cashier_name || 'الكاشير',
         notes: s.notes || '',
+        prescription: s.prescription || undefined,
+        shiftId: s.shift_id || undefined,
+        changeGiven: parseFloat(s.change_given) || 0,
       }));
 
       const mappedTransactions: FinancialTransaction[] = (txData || []).map((t: any) => ({
@@ -782,11 +881,11 @@ export class SupabaseService {
         return { success: false, error: error.message };
       }
 
-      const role = (data.user?.user_metadata?.role as any) || 'pharmacist';
+      // الدور لا يُؤخذ من user_metadata لأنه قابل للتعديل من المستخدم نفسه. الصلاحيات المحلية تتحكم بها كلمات المرور/الـ PIN.
       return {
         success: true,
         user: data.user,
-        role: role,
+        role: 'pharmacist',
       };
     } catch (err: any) {
       return { success: false, error: err?.message || 'خطأ أثناء تسجيل الدخول عبر Supabase' };
@@ -813,7 +912,6 @@ export class SupabaseService {
         password: pass,
         options: {
           data: {
-            role: role,
             full_name: fullName,
           },
         },
@@ -839,7 +937,7 @@ export class SupabaseService {
     try {
       const { data: { session } } = await client.auth.getSession();
       if (!session || !session.user) return null;
-      return (session.user.user_metadata?.role as any) || 'pharmacist';
+      return 'pharmacist';
     } catch {
       return null;
     }
